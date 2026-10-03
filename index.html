@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>Co-Founder Expense Ledger</title>
-<meta name="description" content="Log startup expenses, convert them to SAR, split costs between co-founders and track repayments in one shared ledger.">
+<meta name="description" content="Log startup expenses, convert them to SAR, split costs between co-founders and track repayments in one shared ledger backed by your own Firebase project.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23178066'/%3E%3Cpath d='M18 22h28v22H18z' fill='none' stroke='white' stroke-width='4' stroke-linejoin='round'/%3E%3Ccircle cx='38' cy='33' r='3.5' fill='white'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -41,6 +41,13 @@
     } catch (e) { /* storage blocked: fall back to light */ }
   })();
 </script>
+
+<!-- Firebase (Authentication + Cloud Firestore), namespaced builds so no bundler is needed -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<!-- Optional: a config.js next to this file defines window.LEDGER_CONFIG so nobody has to paste settings -->
+<script src="config.js"></script>
 
 <style type="text/tailwindcss">
   @layer components {
@@ -141,6 +148,19 @@
 </head>
 
 <body class="min-h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased is-loading">
+<!-- Gate: setup, sign-in and access screens shown before the ledger -->
+<div id="gate" class="fixed inset-0 z-[55] bg-slate-50 dark:bg-slate-950 overflow-y-auto">
+  <div class="min-h-full flex items-center justify-center p-4 sm:p-6">
+    <div class="card w-full max-w-md p-6 sm:p-8">
+      <div class="flex items-center gap-3 mb-5">
+        <div class="h-10 w-10 shrink-0 rounded-xl bg-brand-600 text-white flex items-center justify-center"><i data-icon="wallet" class="h-5 w-5"></i></div>
+        <div class="min-w-0"><h1 class="text-base font-extrabold tracking-tight">Co-Founder Expense Ledger</h1><p id="gate-sub" class="text-xs text-slate-500 dark:text-slate-400">Connecting</p></div>
+      </div>
+      <div id="gate-body"></div>
+    </div>
+  </div>
+</div>
+
 <div id="app">
 
   <!-- ===================== Header ===================== -->
@@ -150,7 +170,7 @@
         <div class="h-9 w-9 shrink-0 rounded-xl bg-brand-600 text-white flex items-center justify-center"><i data-icon="wallet" class="h-5 w-5"></i></div>
         <div class="min-w-0">
           <h1 class="text-base font-extrabold leading-tight tracking-tight truncate">Co-Founder Expense Ledger</h1>
-          <p id="company-label" class="text-xs text-slate-500 dark:text-slate-400 truncate"></p>
+          <p class="text-xs text-slate-500 dark:text-slate-400 truncate"><span id="company-label"></span><span id="user-email" class="hidden sm:inline"></span></p>
         </div>
       </div>
       <div class="flex items-center gap-1.5 sm:gap-2">
@@ -169,6 +189,7 @@
           </div>
         </div>
         <button type="button" id="theme-btn" class="btn-icon" aria-label="Toggle dark mode"></button>
+        <button type="button" id="signout-btn" class="btn-icon" aria-label="Sign out" title="Sign out"><i data-icon="logout" class="h-[18px] w-[18px]"></i></button>
         <button type="button" id="settings-btn" class="btn-icon needs-ready" aria-label="Settings"><i data-icon="settings" class="h-[18px] w-[18px]"></i></button>
       </div>
     </div>
@@ -310,7 +331,7 @@
         </div>
         <div id="readonly-card" class="hidden card p-5 text-sm text-slate-600 dark:text-slate-300">
           <p class="font-semibold text-slate-900 dark:text-white">View-only access</p>
-          <p class="mt-1">You can read the ledger and export it, but only co-founders with edit access can add or change entries. Ask the owner to share it with you as an editor.</p>
+          <p class="mt-1">You can read the ledger and export it, but your account is not allowed to change it. Ask the owner to check the access list in Settings → Team.</p>
         </div>
       </div>
 
@@ -487,6 +508,15 @@
             <div id="s-founders" class="space-y-2"></div>
             <p class="text-[11px] text-slate-500 mt-2">The primary financier is pre-selected as the payer for new expenses. Someone who already appears in the ledger cannot be removed until their entries are reassigned or deleted.</p>
           </div>
+          <div class="pt-4 border-t border-slate-200 dark:border-slate-800">
+            <p class="text-sm font-bold mb-2">Who can open this ledger</p>
+            <div id="s-members" class="space-y-1.5"></div>
+            <div id="s-member-add" class="hidden flex gap-2 mt-2">
+              <input id="s-member-email" type="email" class="input" placeholder="co-founder@email.com" autocomplete="off">
+              <button type="button" id="s-member-btn" class="btn btn-secondary shrink-0"><i data-icon="userplus" class="h-3.5 w-3.5"></i>Add</button>
+            </div>
+            <p id="s-members-note" class="text-[11px] text-slate-500 mt-2"></p>
+          </div>
         </fieldset>
 
         <fieldset class="s-panel hidden space-y-3 s-editable" data-panel="rates">
@@ -627,7 +657,8 @@ const ICONS = {
   cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
   dots: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
   database: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/>',
-  eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>'
+  eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+  logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>'
 };
 const icon = (name, cls = 'h-4 w-4') =>
   `<svg xmlns="http://www.w3.org/2000/svg" class="${cls} shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
@@ -675,19 +706,18 @@ const avatar = (f, size = 'h-7 w-7 text-[10px]') => f
 const catBadge = id => { const c = CATEGORIES.find(x => x.id === id) || CATEGORIES[CATEGORIES.length - 1]; return `<span class="badge" style="background:${c.color}1a;color:${c.color}">${icon(c.icon, 'h-3 w-3')}${esc(c.id)}</span>`; };
 
 /* =========================================================
-   4. STATE, RUNTIME CAPABILITIES AND STORAGE
-   The page runs in one of two modes:
-   - cloud: inside the claude.ai viewer, data lives in the artifact's shared
-     database and every viewer sees changes live.
-   - local: opened as a plain file (or when the shared store is unavailable),
-     data is kept in this browser's localStorage.
+   4. STATE, FIREBASE AND STORAGE
+   The ledger lives in a Firebase project (Cloud Firestore) that the owner
+   creates once. Everyone on the access list sees the same data, updated
+   live. Project settings come from config.js (window.LEDGER_CONFIG) or,
+   failing that, from a one-time setup screen kept in this browser.
    ========================================================= */
 const state = { company: '', primaryId: '', founders: [], rates: {}, ratesSource: '', ratesUpdatedAt: null, defaults: { taxPct: 15, dutyPct: 5 }, expenses: [], repayments: [], settingsUpdatedAt: null };
-const caps = { db: null, user: null, downloads: null, mode: 'local', readOnly: false, writeKnown: null, viewerId: null };
-const runtime = { ready: false, status: 'connecting', storageOk: true, subs: [], seen: { settings: false, expenses: false, repayments: false } };
+const caps = { mode: 'cloud', config: null, auth: null, db: null, user: null, email: '', viewerId: '', isOwner: false, readOnly: false };
+const runtime = { ready: false, status: 'connecting', subs: [], seen: { settings: false, expenses: false, repayments: false }, members: [], authBound: false };
 const ui = { search: '', sort: 'date-desc', cats: new Set(), payers: new Set(), selected: new Set(), editingId: null, showLog: false, tab: 'team' };
 let lastDeleted = null;
-const hasClaude = !!(window.claude && typeof window.claude.use === 'function');
+const CONFIG_KEY = 'cfl:firebase-config';
 
 function settingsDefaults() {
   return {
@@ -710,43 +740,171 @@ function applySettings(data) {
   state.defaults = Object.assign({}, d.defaults, s.defaults || {});
   state.settingsUpdatedAt = s.updatedAt || null;
 }
-const settingsBody = () => ({ company: state.company, primaryId: state.primaryId, founders: state.founders.map(f => ({ id: f.id, name: f.name, color: f.color })), rates: Object.assign({}, state.rates), ratesSource: state.ratesSource, ratesUpdatedAt: state.ratesUpdatedAt, defaults: Object.assign({}, state.defaults), updatedAt: new Date().toISOString() });
-const cleanDoc = o => JSON.parse(JSON.stringify(o));   // plain JSON copy (drops undefined, unfreezes)
+const settingsBody = () => ({ company: state.company, primaryId: state.primaryId, founders: state.founders.map(f => ({ id: f.id, name: f.name, color: f.color })), rates: Object.assign({}, state.rates), ratesSource: state.ratesSource, ratesUpdatedAt: state.ratesUpdatedAt, defaults: Object.assign({}, state.defaults), updatedAt: new Date().toISOString(), updatedBy: caps.email || null });
+const cleanDoc = o => JSON.parse(JSON.stringify(o));   // plain JSON copy: Firestore rejects undefined values
 
-/* ---------- Local mode ---------- */
-function loadLocal() {
-  const raw = lsGet(STORAGE_KEY) || lsGet('cofounder-ledger:v1');
-  if (!raw) { applySettings(null); state.expenses = []; state.repayments = []; return; }
-  try {
-    const p = JSON.parse(raw);
-    applySettings(p); state.expenses = Array.isArray(p.expenses) ? p.expenses.filter(e => e && e.id) : []; state.repayments = Array.isArray(p.repayments) ? p.repayments.filter(r => r && r.id) : [];
-  } catch (e) { applySettings(null); state.expenses = []; state.repayments = []; }
+/* ---------- Project configuration ---------- */
+function normalizeConfig(c) {
+  if (!c || !c.firebase || !c.firebase.apiKey || !c.firebase.projectId) return null;
+  return { ownerEmail: String(c.ownerEmail || '').trim().toLowerCase(), firebase: Object.assign({}, c.firebase) };
 }
-function saveLocal() {
-  runtime.storageOk = lsSet(STORAGE_KEY, JSON.stringify(Object.assign({ version: 2 }, settingsBody(), { expenses: state.expenses, repayments: state.repayments })));
-  setStatus(runtime.storageOk ? 'local' : 'nostorage');
+function loadConfig() {
+  const fromFile = normalizeConfig(window.LEDGER_CONFIG); if (fromFile) return fromFile;
+  try { const raw = lsGet(CONFIG_KEY); if (raw) return normalizeConfig(JSON.parse(raw)); } catch (e) { /* ignore */ }
+  return null;
 }
-function probeStorage() { runtime.storageOk = lsSet(STORAGE_KEY + ':probe', '1'); try { localStorage.removeItem(STORAGE_KEY + ':probe'); } catch (e) { /* ignore */ } }
+// Pulls key/value pairs out of a pasted firebaseConfig block, whatever the quoting style.
+function parseFirebaseConfig(text) {
+  const out = {}; const re = /["']?([A-Za-z]+)["']?\s*:\s*["']([^"']+)["']/g; let m;
+  while ((m = re.exec(String(text || '')))) out[m[1]] = m[2];
+  return out.apiKey && out.projectId ? out : null;
+}
+const configJsSnippet = cfg => `window.LEDGER_CONFIG = ${JSON.stringify({ ownerEmail: cfg.ownerEmail, firebase: cfg.firebase }, null, 2)};`;
 
-/* ---------- Cloud mode ---------- */
-async function bootCapabilities() {
-  const [db, user, downloads] = await Promise.all([claude.use('db'), claude.use('user'), claude.use('downloads')]);
-  caps.db = db; caps.user = user; caps.downloads = downloads;
-  if (user) {
-    try { caps.writeKnown = await user.can('data.write'); } catch (e) { caps.writeKnown = null; }
-    try { caps.viewerId = await user.id(); } catch (e) { caps.viewerId = null; }
-    if (caps.writeKnown === false) caps.readOnly = true;
+/* ---------- Gate screens: setup, sign in, access ---------- */
+function renderGate(mode, extra) {
+  const gate = $('#gate'), body = $('#gate-body'), sub = $('#gate-sub');
+  gate.classList.remove('hidden');
+  const err = `<p id="g-error" class="hidden rounded-lg bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 text-sm px-3 py-2"></p>`;
+  if (mode === 'loading') {
+    sub.textContent = extra || 'Connecting to the shared ledger';
+    body.innerHTML = `<div class="flex items-center justify-center gap-3 text-sm text-slate-500 py-6">${icon('refresh', 'h-5 w-5 animate-spin')}${esc(extra || 'Connecting')}</div>`;
+  } else if (mode === 'setup') {
+    sub.textContent = 'One-time setup';
+    body.innerHTML = `
+      <p class="text-sm text-slate-600 dark:text-slate-300">This page is not connected to a database yet. Paste the <b>firebaseConfig</b> block from your Firebase project and the email address of the ledger owner.</p>
+      <form id="g-setup" class="mt-4 space-y-3" novalidate>
+        <div><label class="label" for="g-config">firebaseConfig</label><textarea id="g-config" rows="7" class="input font-mono text-xs" spellcheck="false" placeholder="const firebaseConfig = {&#10;  apiKey: &quot;...&quot;,&#10;  authDomain: &quot;...&quot;,&#10;  projectId: &quot;...&quot;,&#10;  appId: &quot;...&quot;&#10;};"></textarea></div>
+        <div><label class="label" for="g-owner">Owner email</label><input id="g-owner" type="email" class="input" placeholder="you@example.com" autocomplete="email"></div>
+        ${err}
+        <button type="submit" id="g-setup-save" class="btn btn-primary w-full">Connect</button>
+      </form>
+      <p class="text-[11px] text-slate-500 mt-3">If a config.js file with these settings sits next to this page, this step is skipped automatically.</p>`;
+  } else if (mode === 'configjs') {
+    sub.textContent = 'Connected';
+    body.innerHTML = `
+      <p class="text-sm text-slate-600 dark:text-slate-300">Saved in this browser. So that your co-founders never see this step, add a file named <b>config.js</b> next to index.html with exactly this content:</p>
+      <pre id="g-snippet" class="mt-3 rounded-lg bg-slate-100 dark:bg-slate-950 text-[11px] p-3 overflow-x-auto whitespace-pre">${esc(extra)}</pre>
+      <div class="flex gap-2 mt-3"><button type="button" id="g-copy" class="btn btn-secondary flex-1">Copy</button><button type="button" id="g-continue" class="btn btn-primary flex-1">Continue to sign in</button></div>`;
+  } else if (mode === 'signin') {
+    sub.textContent = 'Sign in to the shared ledger';
+    body.innerHTML = `
+      <form id="g-form" class="space-y-3" novalidate>
+        <div><label class="label" for="g-email">Email</label><input id="g-email" type="email" class="input" autocomplete="email" placeholder="you@example.com"></div>
+        <div><label class="label" for="g-pass">Password</label><input id="g-pass" type="password" class="input" autocomplete="current-password"></div>
+        ${err}
+        <button type="submit" id="g-signin" class="btn btn-primary w-full">Sign in</button>
+        <button type="button" id="g-create" class="btn btn-secondary w-full">Create account</button>
+      </form>
+      <div class="flex items-start justify-between gap-3 mt-3 text-xs"><button type="button" id="g-forgot" class="text-brand-700 dark:text-brand-400 font-semibold hover:underline shrink-0">Forgot password?</button><span class="text-slate-500 text-right">First time here? Create an account with the email the owner put on the access list.</span></div>`;
+  } else if (mode === 'noaccess') {
+    sub.textContent = 'Access needed';
+    body.innerHTML = `
+      <p class="text-sm text-slate-600 dark:text-slate-300">You are signed in as <b>${esc(caps.email)}</b>, but that address is not on this ledger's access list yet.${caps.config && caps.config.ownerEmail ? ` Ask <b>${esc(caps.config.ownerEmail)}</b> to add it under Settings → Team.` : ''}</p>
+      <div class="flex gap-2 mt-4"><button type="button" id="g-retry" class="btn btn-primary flex-1">Check again</button><button type="button" id="g-signout" class="btn btn-secondary flex-1">Sign out</button></div>`;
+  } else {
+    sub.textContent = 'Something went wrong';
+    body.innerHTML = `
+      <p class="text-sm text-rose-700 dark:text-rose-300">${esc(extra || 'Unknown error')}</p>
+      <div class="flex gap-2 mt-4"><button type="button" id="g-reload" class="btn btn-primary flex-1">Reload</button><button type="button" id="g-reset" class="btn btn-secondary flex-1">Change settings</button></div>`;
   }
 }
+function hideGate() { $('#gate').classList.add('hidden'); }
+function gateError(msg) { const el = $('#g-error'); if (el) { el.textContent = msg; el.classList.remove('hidden'); } else toast(msg, 'error'); }
+function setGateBusy(b) { $$('#gate button, #gate input, #gate textarea').forEach(el => { el.disabled = b; }); }
+
+/* ---------- Boot, auth and membership ---------- */
+function boot() {
+  if (!(window.firebase && firebase.initializeApp)) { renderGate('error', 'The Firebase library could not be loaded. Check your connection and reload the page.'); return; }
+  caps.config = loadConfig();
+  if (!caps.config) { renderGate('setup'); return; }
+  startFirebase();
+}
+function startFirebase() {
+  try {
+    if (!(firebase.apps && firebase.apps.length)) firebase.initializeApp(caps.config.firebase);
+    caps.auth = firebase.auth(); caps.db = firebase.firestore();
+  } catch (e) { renderGate('error', 'The Firebase settings were rejected: ' + ((e && e.message) || e)); return; }
+  renderGate('loading');
+  if (!runtime.authBound) { runtime.authBound = true; caps.auth.onAuthStateChanged(onAuth, err => renderGate('error', authMessage(err))); }
+}
+function saveSetup() {
+  const cfg = parseFirebaseConfig($('#g-config').value), owner = $('#g-owner').value.trim().toLowerCase();
+  if (!cfg) return gateError('Paste the whole firebaseConfig block from the Firebase console. It must include apiKey and projectId.');
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(owner)) return gateError('Enter the owner\'s email address.');
+  const full = { ownerEmail: owner, firebase: cfg };
+  lsSet(CONFIG_KEY, JSON.stringify(full)); caps.config = normalizeConfig(full);
+  renderGate('configjs', configJsSnippet(caps.config));
+}
+async function onAuth(user) {
+  stopSubs(); runtime.ready = false; runtime.seen = { settings: false, expenses: false, repayments: false };
+  document.body.classList.add('is-loading');
+  if (!user) { caps.user = null; caps.email = ''; caps.viewerId = ''; caps.isOwner = false; renderGate('signin'); return; }
+  caps.user = user; caps.email = String(user.email || '').toLowerCase(); caps.viewerId = caps.email;
+  caps.isOwner = !!caps.config.ownerEmail && caps.email === caps.config.ownerEmail;
+  renderGate('loading', 'Checking access');
+  try {
+    const ok = await checkMembership();
+    if (!ok) { renderGate('noaccess'); return; }
+  } catch (e) { renderGate('error', 'Could not check access: ' + ((e && e.message) || e)); return; }
+  setStatus('connecting'); startCloud();
+}
+// A member is anyone with a document in /members. The owner's document is created on first sign-in.
+async function checkMembership() {
+  const ref = caps.db.collection('members').doc(caps.email);
+  try {
+    const snap = await ref.get();
+    if (snap.exists) { if (snap.data() && snap.data().role === 'owner') caps.isOwner = true; return true; }
+  } catch (e) { if (!(e && e.code === 'permission-denied')) throw e; }
+  // Not listed yet: only the owner (per the security rules) can create their own entry.
+  try { await ref.set({ email: caps.email, role: 'owner', addedAt: new Date().toISOString(), addedBy: caps.email }); caps.isOwner = true; return true; }
+  catch (e) { if (e && e.code === 'permission-denied') return false; throw e; }
+}
+async function recheckAccess() { renderGate('loading', 'Checking access'); try { if (await checkMembership()) { setStatus('connecting'); startCloud(); } else renderGate('noaccess'); } catch (e) { renderGate('error', (e && e.message) || String(e)); } }
+async function doSignIn(create) {
+  const email = ($('#g-email') || {}).value || '', pass = ($('#g-pass') || {}).value || '';
+  if (!email.trim() || !pass) return gateError('Enter your email and password.');
+  if (create && pass.length < 6) return gateError('Choose a password of at least 6 characters.');
+  setGateBusy(true);
+  try { if (create) await caps.auth.createUserWithEmailAndPassword(email.trim(), pass); else await caps.auth.signInWithEmailAndPassword(email.trim(), pass); }
+  catch (e) { setGateBusy(false); gateError(authMessage(e)); }
+}
+function authMessage(e) {
+  const c = String((e && e.code) || '');
+  if (/invalid-credential|wrong-password|user-not-found|invalid-login/.test(c)) return 'Email or password is incorrect. If you have not created an account yet, tap "Create account".';
+  if (c.includes('email-already-in-use')) return 'An account with this email already exists. Sign in instead.';
+  if (c.includes('invalid-email')) return 'That email address does not look right.';
+  if (c.includes('weak-password')) return 'Choose a stronger password (at least 6 characters).';
+  if (c.includes('too-many-requests')) return 'Too many attempts. Wait a few minutes and try again.';
+  if (c.includes('network')) return 'Network problem. Check your connection and try again.';
+  if (c.includes('operation-not-allowed')) return 'Email/password sign-in is not enabled in the Firebase project yet (Authentication → Sign-in method).';
+  if (c.includes('unauthorized-domain')) return 'This website is not on the Firebase project\'s authorised domains list.';
+  return (e && e.message) || 'Sign-in failed.';
+}
+async function forgotPassword() {
+  const email = (($('#g-email') || {}).value || '').trim();
+  if (!email) return gateError('Type your email above first, then tap "Forgot password?".');
+  try { await caps.auth.sendPasswordResetEmail(email); toast('Password reset email sent. Check your inbox and spam folder.', 'success', { duration: 7000 }); }
+  catch (e) { gateError(authMessage(e)); }
+}
+async function signOut() { try { await caps.auth.signOut(); } catch (e) { toast('Could not sign out: ' + ((e && e.message) || e), 'error'); } }
+async function copySnippet() {
+  const text = ($('#g-snippet') || {}).textContent || '';
+  try { await navigator.clipboard.writeText(text); toast('Copied. Paste it into a new file named config.js in your repository.', 'success', { duration: 6000 }); }
+  catch (e) { const r = document.createRange(); r.selectNodeContents($('#g-snippet')); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); toast('Select-all is active: copy the highlighted text.', 'info'); }
+}
+
+/* ---------- Live data ---------- */
+function stopSubs() { runtime.subs.forEach(u => { try { u(); } catch (e) { /* ignore */ } }); runtime.subs = []; }
 function startCloud() {
-  caps.mode = 'cloud';
+  stopSubs();
   const db = caps.db;
   const onErr = err => {
-    console.warn('Shared store subscription ended', err);
-    if (err && err.code === 'revoked') { setReadOnly(true); setStatus('revoked'); }
+    console.warn('Live subscription ended', err);
+    if (err && err.code === 'permission-denied') { stopSubs(); runtime.ready = false; document.body.classList.add('is-loading'); renderGate('noaccess'); }
     else setStatus('lost');
   };
-  runtime.subs.push(db.doc('settings/main').onSnapshot(snap => {
+  runtime.subs.push(db.collection('settings').doc('main').onSnapshot(snap => {
     if (!settingsSync.dirty) applySettings(snap.exists ? snap.data() : null);
     runtime.seen.settings = true; onCloudTick();
   }, onErr));
@@ -757,6 +915,10 @@ function startCloud() {
   runtime.subs.push(db.collection('repayments').onSnapshot(snap => {
     state.repayments = snap.docs.map(d => Object.assign({}, d.data(), { id: d.id }));
     runtime.seen.repayments = true; onCloudTick();
+  }, onErr));
+  runtime.subs.push(db.collection('members').onSnapshot(snap => {
+    runtime.members = snap.docs.map(d => Object.assign({}, d.data(), { id: d.id }));
+    if (runtime.ready && !$('#settings-modal').classList.contains('hidden')) renderMembers();
   }, onErr));
 }
 function onCloudTick() {
@@ -770,6 +932,8 @@ function onCloudTick() {
 function markReady(status) {
   runtime.ready = true;
   document.body.classList.remove('is-loading');
+  hideGate();
+  $('#user-email').textContent = caps.email ? `, signed in as ${caps.email}` : '';
   setStatus(status);
   renderFounderInputs(); resetForm(true); $('#r-date').value = nowLocal();
   renderAll();
@@ -783,18 +947,18 @@ function setReadOnly(flag) {
   if (runtime.ready) renderAll();
 }
 
-// Run a shared-store write with the error handling the contract asks for.
+// Run a Firestore write with friendly error handling.
 async function cloudWrite(fn) {
   try { await fn(); return true; }
   catch (e) {
-    const code = e && e.code;
-    if (code === 'invalid_argument' && caps.writeKnown !== true) { setReadOnly(true); toast('You have view-only access to this ledger. Ask the owner to share it with you as an editor.', 'warn', { duration: 8000 }); }
-    else if (code === 'quota_exceeded') toast('The shared ledger is full. Export a backup, then delete old entries.', 'error', { duration: 8000 });
-    else if (code === 'unavailable') {
-      await sleep(400 + Math.random() * 500);
-      try { await fn(); return true; } catch (e2) { toast('The shared ledger could not be reached. Try again in a moment.', 'error'); }
+    const code = String((e && e.code) || '');
+    if (code === 'permission-denied') { toast('That change was not allowed. Your access to this ledger may have changed; try reloading.', 'warn', { duration: 8000 }); }
+    else if (code === 'unauthenticated') { renderGate('signin'); }
+    else if (code === 'resource-exhausted') { toast('The database quota for today is used up. Try again later.', 'error', { duration: 8000 }); }
+    else if (code === 'unavailable' || code === 'deadline-exceeded') {
+      await sleep(500 + Math.random() * 500);
+      try { await fn(); return true; } catch (e2) { toast('The database could not be reached. Check your connection and try again.', 'error'); }
     }
-    else if (code === 'revoked') { setReadOnly(true); setStatus('revoked'); }
     else { console.warn('Write failed', e); toast('Could not save: ' + ((e && e.message) || 'unknown error'), 'error'); }
     return false;
   }
@@ -803,7 +967,6 @@ async function cloudWrite(fn) {
 // Settings writes are coalesced: one write per pause while typing.
 const settingsSync = { dirty: false, timer: null, inFlight: false, queued: false };
 function scheduleSettingsWrite(delay = 600) {
-  if (caps.mode !== 'cloud') { saveLocal(); return; }
   settingsSync.dirty = true;
   clearTimeout(settingsSync.timer);
   settingsSync.timer = setTimeout(flushSettings, delay);
@@ -812,66 +975,61 @@ async function flushSettings() {
   settingsSync.timer = null;
   if (settingsSync.inFlight) { settingsSync.queued = true; return; }
   settingsSync.inFlight = true;
-  await cloudWrite(() => caps.db.doc('settings/main').set(settingsBody()));
+  await cloudWrite(() => caps.db.collection('settings').doc('main').set(cleanDoc(settingsBody())));
   settingsSync.inFlight = false;
   if (settingsSync.queued) { settingsSync.queued = false; flushSettings(); return; }
   if (!settingsSync.timer) settingsSync.dirty = false;
 }
 
-/* ---------- Store facade used by the UI (works in both modes) ---------- */
+/* ---------- Store facade used by the UI ---------- */
 const store = {
-  async putExpense(e) {
-    if (caps.mode === 'cloud') return cloudWrite(() => caps.db.collection('expenses').doc(e.id).set(cleanDoc(e)));
-    const i = state.expenses.findIndex(x => x.id === e.id); if (i > -1) state.expenses[i] = e; else state.expenses.push(e);
-    saveLocal(); renderAll(); return true;
-  },
-  async removeExpenses(ids) {
-    if (caps.mode === 'cloud') { let ok = true; for (const id of ids) ok = (await cloudWrite(() => caps.db.collection('expenses').doc(id).delete())) && ok; return ok; }
-    state.expenses = state.expenses.filter(e => !ids.includes(e.id)); saveLocal(); renderAll(); return true;
-  },
-  async putRepayment(r) {
-    if (caps.mode === 'cloud') return cloudWrite(() => caps.db.collection('repayments').doc(r.id).set(cleanDoc(r)));
-    const i = state.repayments.findIndex(x => x.id === r.id); if (i > -1) state.repayments[i] = r; else state.repayments.push(r);
-    saveLocal(); renderAll(); return true;
-  },
-  async removeRepayment(id) {
-    if (caps.mode === 'cloud') return cloudWrite(() => caps.db.collection('repayments').doc(id).delete());
-    state.repayments = state.repayments.filter(r => r.id !== id); saveLocal(); renderAll(); return true;
-  },
+  async putExpense(e) { return cloudWrite(() => caps.db.collection('expenses').doc(String(e.id)).set(cleanDoc(e))); },
+  async removeExpenses(ids) { let ok = true; for (const id of ids) ok = (await cloudWrite(() => caps.db.collection('expenses').doc(String(id)).delete())) && ok; return ok; },
+  async putRepayment(r) { return cloudWrite(() => caps.db.collection('repayments').doc(String(r.id)).set(cleanDoc(r))); },
+  async removeRepayment(id) { return cloudWrite(() => caps.db.collection('repayments').doc(String(id)).delete()); },
   async clearAll() {
-    if (caps.mode === 'cloud') {
-      for (const group of chunk(state.expenses.map(e => e.id), 5)) await Promise.all(group.map(id => cloudWrite(() => caps.db.collection('expenses').doc(id).delete())));
-      for (const group of chunk(state.repayments.map(r => r.id), 5)) await Promise.all(group.map(id => cloudWrite(() => caps.db.collection('repayments').doc(id).delete())));
-      applySettings(null); await cloudWrite(() => caps.db.doc('settings/main').set(settingsBody()));
-      return true;
-    }
-    applySettings(null); state.expenses = []; state.repayments = []; saveLocal(); renderAll(); return true;
+    for (const group of chunk(state.expenses.map(e => e.id), 10)) await Promise.all(group.map(id => cloudWrite(() => caps.db.collection('expenses').doc(String(id)).delete())));
+    for (const group of chunk(state.repayments.map(r => r.id), 10)) await Promise.all(group.map(id => cloudWrite(() => caps.db.collection('repayments').doc(String(id)).delete())));
+    applySettings(null); await cloudWrite(() => caps.db.collection('settings').doc('main').set(cleanDoc(settingsBody())));
+    return true;
   },
   async replaceAll(data) {
     const exps = data.expenses.filter(e => e && e.id), reps = (data.repayments || []).filter(r => r && r.id);
-    if (caps.mode === 'cloud') {
-      await this.clearAll();
-      applySettings(data); await cloudWrite(() => caps.db.doc('settings/main').set(settingsBody()));
-      for (const group of chunk(exps, 5)) await Promise.all(group.map(e => cloudWrite(() => caps.db.collection('expenses').doc(String(e.id)).set(cleanDoc(e)))));
-      for (const group of chunk(reps, 5)) await Promise.all(group.map(r => cloudWrite(() => caps.db.collection('repayments').doc(String(r.id)).set(cleanDoc(r)))));
-      return true;
-    }
-    applySettings(data); state.expenses = exps; state.repayments = reps; saveLocal(); renderAll(); return true;
+    await this.clearAll();
+    applySettings(data); await cloudWrite(() => caps.db.collection('settings').doc('main').set(cleanDoc(settingsBody())));
+    for (const group of chunk(exps, 10)) await Promise.all(group.map(e => cloudWrite(() => caps.db.collection('expenses').doc(String(e.id)).set(cleanDoc(e)))));
+    for (const group of chunk(reps, 10)) await Promise.all(group.map(r => cloudWrite(() => caps.db.collection('repayments').doc(String(r.id)).set(cleanDoc(r)))));
+    return true;
   }
 };
 
-/* ---------- Downloads (viewer capability when published, plain download otherwise) ---------- */
+/* ---------- Access list ---------- */
+async function addMember(raw) {
+  const email = String(raw || '').trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast('Enter a valid email address.', 'error');
+  if (runtime.members.some(m => (m.email || m.id) === email)) return toast(`${email} is already on the list.`, 'info');
+  const ok = await cloudWrite(() => caps.db.collection('members').doc(email).set({ email, role: 'editor', addedAt: new Date().toISOString(), addedBy: caps.email }));
+  if (ok) { $('#s-member-email').value = ''; toast(`${email} can now sign in. They create their own password on the sign-in screen.`, 'success', { duration: 7000 }); }
+}
+async function removeMember(email) {
+  const m = runtime.members.find(x => (x.email || x.id) === email);
+  if (m && m.role === 'owner') return toast('The owner cannot be removed.', 'warn');
+  if (!(await ask(`Remove ${email} from the access list? They lose access immediately.`, { ok: 'Remove', danger: true }))) return;
+  await cloudWrite(() => caps.db.collection('members').doc(email).delete());
+}
+function renderMembers() {
+  const list = runtime.members.slice().sort((a, b) => ((b.role === 'owner') - (a.role === 'owner')) || String(a.email || a.id).localeCompare(String(b.email || b.id)));
+  $('#s-members').innerHTML = list.length ? list.map(m => { const em = m.email || m.id; return `
+    <div class="flex items-center justify-between gap-2 rounded-lg border border-slate-200 dark:border-slate-800 px-3 py-1.5 text-sm">
+      <span class="truncate">${esc(em)}${m.role === 'owner' ? ` <span class="badge bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">Owner</span>` : ''}${em === caps.email ? ' <span class="text-xs text-slate-400">(you)</span>' : ''}</span>
+      ${caps.isOwner && m.role !== 'owner' ? `<button type="button" class="btn-icon !h-7 !w-7 hover:!text-rose-600" data-rm-member="${esc(em)}" aria-label="Remove ${esc(em)}">${icon('x', 'h-3.5 w-3.5')}</button>` : ''}
+    </div>`; }).join('') : `<p class="text-sm text-slate-500">Nobody else yet.</p>`;
+  $('#s-member-add').classList.toggle('hidden', !caps.isOwner);
+  $('#s-members-note').textContent = caps.isOwner ? 'People you add sign in with that email and a password they choose on the sign-in screen.' : 'Only the owner can change this list.';
+}
+
+/* ---------- Downloads ---------- */
 async function saveFile(name, content) {
-  if (caps.downloads) {
-    try { await caps.downloads.save({ filename: name, data: content }); return true; }
-    catch (e) {
-      const code = e && e.code;
-      if (code === 'declined') return false;
-      if (code === 'rate_limited') toast('Another download is still waiting for your answer.', 'warn');
-      else toast('Downloads are not available in this view.', 'warn');
-      return false;
-    }
-  }
   try {
     const blob = new Blob([content]); const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
@@ -985,19 +1143,16 @@ function renderStatus() {
   const dot = c => `<span class="h-2 w-2 rounded-full ${c}"></span>`;
   const map = {
     connecting: [dot('bg-amber-500 animate-pulse'), 'Connecting', 'Opening the shared ledger'],
-    cloud:      [dot('bg-brand-500'), caps.readOnly ? 'Shared, view only' : 'Shared, live', 'Everyone with access sees the same ledger, updated live'],
-    local:      [dot('bg-slate-400'), 'This device only', 'Saved in this browser only. Export a backup to move it.'],
-    nostorage:  [dot('bg-amber-500 animate-pulse'), 'Not saved', 'Storage is blocked here, so entries will not survive a reload'],
-    lost:       [dot('bg-rose-500'), 'Connection lost', 'Live updates stopped. Reload the page to reconnect.'],
-    revoked:    [dot('bg-rose-500'), 'Access changed', 'Your access to this ledger changed. Reload to continue.']
+    cloud:      [dot('bg-brand-500'), caps.readOnly ? 'Shared, view only' : 'Shared, live', 'Everyone on the access list sees the same ledger, updated live'],
+    lost:       [dot('bg-rose-500'), 'Connection lost', 'Live updates stopped. Reload the page to reconnect.']
   };
   const [d, label, title] = map[runtime.status] || map.connecting;
   el.innerHTML = `${d}<span class="hidden sm:inline">${label}</span>`; el.title = title;
-  const n = $('#notice');
-  if (runtime.status === 'lost' || runtime.status === 'revoked') {
-    n.classList.remove('hidden');
-    n.innerHTML = `<div class="h-9 w-9 shrink-0 rounded-xl bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400 flex items-center justify-center">${icon('alert', 'h-4 w-4')}</div><div class="flex-1 text-sm"><p class="font-semibold">${esc(label)}</p><p class="text-slate-600 dark:text-slate-300">${esc(title)}</p></div><button type="button" class="btn btn-secondary" onclick="location.reload()">Reload</button>`;
-  } else n.classList.add('hidden');
+  const nt = $('#notice');
+  if (runtime.status === 'lost') {
+    nt.classList.remove('hidden');
+    nt.innerHTML = `<div class="h-9 w-9 shrink-0 rounded-xl bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400 flex items-center justify-center">${icon('alert', 'h-4 w-4')}</div><div class="flex-1 text-sm"><p class="font-semibold">${esc(label)}</p><p class="text-slate-600 dark:text-slate-300">${esc(title)}</p></div><button type="button" class="btn btn-secondary" onclick="location.reload()">Reload</button>`;
+  } else nt.classList.add('hidden');
 }
 
 function renderStats(L) {
@@ -1123,9 +1278,8 @@ function renderFounderInputs() {
 function renderFooter() {
   const main = ['USD', 'EUR', 'GBP', 'AED', 'JPY'];
   $('#footer-rates').textContent = `Rates on file (${String(state.ratesSource).toLowerCase()}): ` + main.map(c => `1 ${c} = ${fmtRate(state.rates[c])} SAR`).join(', ') + '. Change them in Settings.';
-  $('#footer-storage').textContent = caps.mode === 'cloud'
-    ? 'This ledger is stored with the artifact and shared with everyone the owner gives access to. Changes appear for all of them within moments.'
-    : 'This copy is saved in this browser only. Export a backup before clearing site data or switching devices.';
+  const project = caps.config && caps.config.firebase ? caps.config.firebase.projectId : '';
+  $('#footer-storage').textContent = `Stored in the Firebase project${project ? ' "' + project + '"' : ''} and shared with everyone on the access list. Changes appear for all of them within moments.`;
 }
 
 /* ----- Transaction history ----- */
@@ -1577,11 +1731,8 @@ function renderSettings(preserve = false) {
       <span class="text-xs text-slate-400">SAR</span>
     </label>`).join('');
   $('#s-tax-default').value = state.defaults.taxPct; $('#s-duty-default').value = state.defaults.dutyPct;
-  $('#s-storage-info').innerHTML = caps.mode === 'cloud'
-    ? `${icon('check', 'h-3.5 w-3.5 text-emerald-500 mt-0.5')}<span>Stored with this artifact and shared with everyone the owner gives access to. Download a backup before clearing data; restore it here on any device.</span>`
-    : runtime.storageOk
-      ? `${icon('check', 'h-3.5 w-3.5 text-emerald-500 mt-0.5')}<span>Saving automatically to this browser (${fmtNum(backupJSON().length / 1024, 1)} KB). Nothing leaves your device.</span>`
-      : `${icon('alert', 'h-3.5 w-3.5 text-amber-500 mt-0.5')}<span>Storage is blocked here, so changes are lost on reload. Download a backup before closing.</span>`;
+  $('#s-storage-info').innerHTML = `${icon('check', 'h-3.5 w-3.5 text-emerald-500 mt-0.5')}<span>Stored in your Firebase project "${esc(caps.config && caps.config.firebase ? caps.config.firebase.projectId : '')}" and shared with everyone on the access list. Download a backup now and then; restore it here on any device.</span>`;
+  renderMembers();
   $$('#settings-modal fieldset.s-editable').forEach(f => { f.disabled = caps.readOnly; });
   $('#s-readonly-note').classList.toggle('hidden', !caps.readOnly);
   showTab(ui.tab);
@@ -1792,30 +1943,41 @@ function bindEvents() {
     await store.clearAll(); lsSet(ONBOARD_KEY, '1'); resetForm(true); toast('Ledger cleared.', 'info');
   });
   window.addEventListener('beforeunload', () => { if (settingsSync.timer) { clearTimeout(settingsSync.timer); flushSettings(); } });
+
+  // Sign out, access list
+  $('#signout-btn').addEventListener('click', async () => { if (await ask('Sign out of the ledger on this device?', { ok: 'Sign out' })) signOut(); });
+  $('#s-member-btn').addEventListener('click', () => addMember($('#s-member-email').value));
+  $('#s-member-email').addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); addMember(ev.target.value); } });
+  $('#s-members').addEventListener('click', ev => { const b = ev.target.closest('[data-rm-member]'); if (b) removeMember(b.dataset.rmMember); });
+
+  // Gate screens (setup, sign in, access)
+  $('#gate').addEventListener('submit', ev => { ev.preventDefault(); if (ev.target.id === 'g-setup') saveSetup(); else if (ev.target.id === 'g-form') doSignIn(false); });
+  $('#gate').addEventListener('click', ev => {
+    const b = ev.target.closest('button'); if (!b) return;
+    if (b.id === 'g-create') doSignIn(true);
+    else if (b.id === 'g-forgot') forgotPassword();
+    else if (b.id === 'g-signout') signOut();
+    else if (b.id === 'g-retry') recheckAccess();
+    else if (b.id === 'g-copy') copySnippet();
+    else if (b.id === 'g-continue') startFirebase();
+    else if (b.id === 'g-reload') location.reload();
+    else if (b.id === 'g-reset') { try { localStorage.removeItem(CONFIG_KEY); } catch (e) { /* ignore */ } renderGate('setup'); }
+  });
 }
 
 /* =========================================================
    13. INIT
    ========================================================= */
-async function init() {
+function init() {
   hydrateIcons();
   const printCss = document.createElement('style');
-  printCss.textContent = `@media print{@page{margin:12mm}html,body{background:#fff!important;color:#111!important}#app,#toasts,#settings-modal{display:none!important}#statement{display:block!important}${STATEMENT_CSS}}`;
+  printCss.textContent = `@media print{@page{margin:12mm}html,body{background:#fff!important;color:#111!important}#app,#toasts,#settings-modal,#gate{display:none!important}#statement{display:block!important}${STATEMENT_CSS}}`;
   document.head.appendChild(printCss);
 
   applySettings(null);
   populateStaticSelects(); renderFounderInputs(); bindEvents(); resetForm(true); $('#r-date').value = nowLocal();
   setupTheme(); setStatus('connecting'); renderAll();
-
-  if (!hasClaude) { startLocal(); return; }
-  try { await bootCapabilities(); } catch (e) { console.warn('Capabilities unavailable', e); }
-  if (caps.db) { setReadOnly(caps.readOnly); startCloud(); }
-  else { startLocal(); toast('The shared ledger is not available in this view, so this copy is saved on this device only.', 'warn', { duration: 8000 }); }
-}
-function startLocal() {
-  caps.mode = 'local'; probeStorage(); loadLocal();
-  markReady(runtime.storageOk ? 'local' : 'nostorage');
-  if (!runtime.storageOk) toast('Storage is blocked here, so entries will not survive a reload. Use Export for a backup.', 'warn', { duration: 8000 });
+  boot();
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

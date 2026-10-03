@@ -1,0 +1,1824 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Co-Founder Expense Ledger</title>
+<meta name="description" content="Log startup expenses, convert them to SAR, split costs between co-founders and track repayments in one shared ledger.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23178066'/%3E%3Cpath d='M18 22h28v22H18z' fill='none' stroke='white' stroke-width='4' stroke-linejoin='round'/%3E%3Ccircle cx='38' cy='33' r='3.5' fill='white'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- Tailwind CSS (CDN runtime build) -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  // Tailwind runtime configuration: class-based dark mode, brand palette, type.
+  window.tailwind = window.tailwind || {};
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        fontFamily: { sans: ['Manrope', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'] },
+        colors: {
+          brand: { 50: '#effaf6', 100: '#d6f3e8', 200: '#b0e6d3', 300: '#7bd3b8', 400: '#45b998', 500: '#22a07f', 600: '#178066', 700: '#146653', 800: '#125244', 900: '#104439' }
+        },
+        boxShadow: { card: '0 1px 2px 0 rgb(15 23 42 / 0.04), 0 12px 32px -16px rgb(15 23 42 / 0.14)' }
+      }
+    }
+  };
+</script>
+<script>
+  // Resolve the theme before first paint: the viewer's explicit choice, then the host's
+  // data-theme attribute, then the system preference.
+  (function () {
+    try {
+      var saved = localStorage.getItem('cfl:theme');
+      var attr = document.documentElement.getAttribute('data-theme');
+      var dark = saved ? saved === 'dark' : attr ? attr === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (dark) document.documentElement.classList.add('dark');
+    } catch (e) { /* storage blocked: fall back to light */ }
+  })();
+</script>
+
+<style type="text/tailwindcss">
+  @layer components {
+    .card       { @apply bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-card dark:shadow-none; }
+    .card-head  { @apply flex items-start justify-between gap-3 px-4 sm:px-5 pt-4 sm:pt-5 pb-3; }
+    .card-title { @apply text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2; }
+    .card-sub   { @apply text-xs text-slate-500 dark:text-slate-400 mt-0.5; }
+    .card-body  { @apply px-4 sm:px-5 pb-4 sm:pb-5; }
+    .label      { @apply block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5; }
+    .input      { @apply w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition disabled:opacity-50 disabled:cursor-not-allowed; }
+    .btn        { @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 disabled:opacity-50 disabled:cursor-not-allowed; }
+    .btn-primary   { @apply bg-brand-600 hover:bg-brand-700 text-white; }
+    .btn-secondary { @apply bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800; }
+    .btn-ghost     { @apply text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800; }
+    .btn-danger    { @apply bg-rose-600 hover:bg-rose-700 text-white; }
+    .btn-icon   { @apply inline-flex items-center justify-center h-8 w-8 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50; }
+    .chip       { @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium cursor-pointer select-none transition border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800; }
+    .chip-on    { @apply bg-slate-900 border-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:border-white dark:text-slate-900 dark:hover:bg-slate-200; }
+    .badge      { @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap; }
+    .th         { @apply px-3 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap; }
+    .td         { @apply px-3 py-3 text-sm text-slate-700 dark:text-slate-200 align-middle; }
+    .stat-value { @apply text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white tabular-nums; }
+    .menu-item  { @apply w-full flex items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800; }
+    .s-tab      { @apply px-3 py-2 text-sm font-semibold text-slate-500 dark:text-slate-400 border-b-2 border-transparent -mb-px hover:text-slate-900 dark:hover:text-white transition; }
+    .s-tab-on   { @apply text-brand-700 dark:text-brand-400 border-brand-600 dark:border-brand-400; }
+    .bar        { @apply h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden; }
+    .bar > div  { @apply h-full rounded-full transition-[width] duration-500; }
+  }
+</style>
+
+<style>
+  /* ---- Native CSS: safe areas, toggles, selects, split options, toasts, print ---- */
+  :root { box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  html { scroll-padding-top: calc(5rem + env(safe-area-inset-top, 0px)); background: #f8fafc; }
+  html.dark { background: #020617; }
+  .dark { color-scheme: dark; }
+  body { -webkit-tap-highlight-color: transparent; }
+  #app-header { top: env(safe-area-inset-top, 0px); }
+  #toasts { bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+
+  /* Hide number spinners for a cleaner form */
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type=number] { -moz-appearance: textfield; }
+
+  /* Custom chevron on selects */
+  select.input {
+    -webkit-appearance: none; appearance: none; padding-right: 2.25rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right .6rem center; background-size: 1rem;
+  }
+
+  /* Toggle switch */
+  .switch { position: relative; display: inline-flex; width: 40px; height: 22px; flex: none; cursor: pointer; }
+  .switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .switch .track { position: absolute; inset: 0; border-radius: 999px; background: #cbd5e1; transition: background .2s; }
+  .dark .switch .track { background: #334155; }
+  .switch .track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 999px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: transform .2s; }
+  .switch input:checked + .track { background: #178066; }
+  .switch input:checked + .track::after { transform: translateX(18px); }
+  .switch input:focus-visible + .track { box-shadow: 0 0 0 3px rgba(34,160,127,.35); }
+  .switch input:disabled + .track { opacity: .5; }
+
+  /* Split mode options */
+  .split-opt { border: 1px solid #cbd5e1; border-radius: .75rem; padding: .55rem .65rem; cursor: pointer; display: flex; flex-direction: column; gap: .1rem; transition: border-color .15s, background .15s; }
+  .dark .split-opt { border-color: #334155; }
+  .split-opt b { font-size: .8rem; font-weight: 700; }
+  .split-opt small { font-size: .68rem; color: #64748b; }
+  .split-opt.split-on { border-color: #178066; background: rgba(34,160,127,.08); }
+  .split-opt:has(input:focus-visible) { box-shadow: 0 0 0 3px rgba(34,160,127,.35); }
+
+  /* Colour picker in team settings */
+  input[type=color].s-color { width: 28px; height: 28px; padding: 0; border: none; border-radius: 999px; overflow: hidden; cursor: pointer; background: none; flex: none; }
+  input[type=color].s-color::-webkit-color-swatch-wrapper { padding: 0; }
+  input[type=color].s-color::-webkit-color-swatch { border: none; border-radius: 999px; }
+  input[type=color].s-color::-moz-color-swatch { border: none; border-radius: 999px; }
+
+  /* Loading and read-only states */
+  .is-loading .needs-ready { opacity: .55; pointer-events: none; }
+  .is-readonly .needs-write { display: none !important; }
+  fieldset:disabled { opacity: .6; }
+
+  /* Toasts */
+  .toast-in { animation: toastIn .18s ease-out; }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .toast-out { opacity: 0; transform: translateY(8px); transition: opacity .18s, transform .18s; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+  /* Thin scrollbars for the register */
+  .nice-scroll::-webkit-scrollbar { height: 8px; }
+  .nice-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
+  .dark .nice-scroll::-webkit-scrollbar-thumb { background: #334155; }
+
+  /* Printable statement is hidden on screen */
+  #statement { display: none; }
+</style>
+</head>
+
+<body class="min-h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased is-loading">
+<div id="app">
+
+  <!-- ===================== Header ===================== -->
+  <header id="app-header" class="sticky z-30 bg-white/85 dark:bg-slate-950/85 backdrop-blur border-b border-slate-200 dark:border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="h-9 w-9 shrink-0 rounded-xl bg-brand-600 text-white flex items-center justify-center"><i data-icon="wallet" class="h-5 w-5"></i></div>
+        <div class="min-w-0">
+          <h1 class="text-base font-extrabold leading-tight tracking-tight truncate">Co-Founder Expense Ledger</h1>
+          <p id="company-label" class="text-xs text-slate-500 dark:text-slate-400 truncate"></p>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5 sm:gap-2">
+        <span id="status" class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400 mr-1"></span>
+        <div class="relative" id="export-menu-wrap">
+          <button type="button" id="export-btn" class="btn btn-secondary !px-3 needs-ready" aria-haspopup="menu" aria-expanded="false">
+            <i data-icon="download" class="h-4 w-4"></i><span class="hidden sm:inline">Export</span>
+          </button>
+          <div id="export-menu" class="hidden absolute right-0 mt-2 w-72 card p-1.5 z-40" role="menu">
+            <button type="button" class="menu-item" data-export="pdf" role="menuitem"><i data-icon="printer" class="h-4 w-4 text-slate-400"></i><span><span class="block font-semibold">Statement: print or save as PDF</span><span class="block text-[11px] text-slate-500">Timestamped audit statement</span></span></button>
+            <button type="button" class="menu-item" data-export="html" role="menuitem"><i data-icon="file" class="h-4 w-4 text-slate-400"></i><span><span class="block font-semibold">Statement as HTML file</span><span class="block text-[11px] text-slate-500">Opens anywhere, prints to PDF</span></span></button>
+            <button type="button" class="menu-item" data-export="csv" role="menuitem"><i data-icon="table" class="h-4 w-4 text-slate-400"></i><span><span class="block font-semibold">Expenses as CSV</span><span class="block text-[11px] text-slate-500">Full itemised breakdown</span></span></button>
+            <button type="button" class="menu-item" data-export="csv-repay" role="menuitem"><i data-icon="coins" class="h-4 w-4 text-slate-400"></i><span><span class="block font-semibold">Repayments as CSV</span></span></button>
+            <div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>
+            <button type="button" class="menu-item" data-export="json" role="menuitem"><i data-icon="database" class="h-4 w-4 text-slate-400"></i><span><span class="block font-semibold">Full backup (JSON)</span><span class="block text-[11px] text-slate-500">Restore it from Settings</span></span></button>
+          </div>
+        </div>
+        <button type="button" id="theme-btn" class="btn-icon" aria-label="Toggle dark mode"></button>
+        <button type="button" id="settings-btn" class="btn-icon needs-ready" aria-label="Settings"><i data-icon="settings" class="h-[18px] w-[18px]"></i></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-6 space-y-5 sm:space-y-6">
+
+    <!-- Connection / access notice -->
+    <div id="notice" class="hidden card p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3"></div>
+
+    <!-- Onboarding notice (shown while the team still has placeholder names) -->
+    <div id="onboard" class="hidden card border-brand-200 dark:border-brand-900 bg-brand-50/60 dark:bg-brand-900/20 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3 needs-write">
+      <div class="h-9 w-9 shrink-0 rounded-xl bg-brand-600 text-white flex items-center justify-center"><i data-icon="users" class="h-4 w-4"></i></div>
+      <div class="flex-1 text-sm">
+        <p class="font-semibold">Set up your team first</p>
+        <p class="text-slate-600 dark:text-slate-300">Name your co-founders and choose who usually fronts the money. Exchange rates start as estimates, so check them before logging foreign-currency items.</p>
+      </div>
+      <div class="flex gap-2 shrink-0">
+        <button type="button" id="onboard-team" class="btn btn-primary">Open team settings</button>
+        <button type="button" id="onboard-dismiss" class="btn btn-ghost">Later</button>
+      </div>
+    </div>
+
+    <!-- ===================== Summary cards ===================== -->
+    <section id="stats" class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4" aria-label="Summary"></section>
+
+    <!-- ===================== Form + analytics ===================== -->
+    <section class="grid grid-cols-1 lg:grid-cols-5 gap-5 sm:gap-6">
+
+      <!-- Expense form -->
+      <div class="lg:col-span-2">
+        <div class="card transition-shadow needs-ready needs-write" id="form-card">
+          <div class="card-head">
+            <div>
+              <h2 class="card-title"><i data-icon="receipt" class="h-4 w-4 text-brand-600 dark:text-brand-400"></i><span id="form-title">Log an expense</span></h2>
+              <p class="card-sub">Itemise the cost, convert it to SAR and decide how it is shared.</p>
+            </div>
+            <button type="button" id="form-cancel" class="btn btn-ghost hidden !px-2 !py-1 text-xs">Cancel</button>
+          </div>
+          <form id="expense-form" class="card-body space-y-4" novalidate autocomplete="off">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="label" for="f-date">Date and time</label>
+                <input id="f-date" type="datetime-local" class="input">
+              </div>
+              <div>
+                <label class="label" for="f-cat">Category</label>
+                <select id="f-cat" class="input"></select>
+              </div>
+            </div>
+            <div>
+              <label class="label" for="f-desc">Description</label>
+              <input id="f-desc" type="text" class="input" placeholder="What was bought, e.g. grinder motor, boiler, housing print" maxlength="120" required>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="label" for="f-payer">Paid by</label>
+                <select id="f-payer" class="input"></select>
+              </div>
+              <div>
+                <label class="label" for="f-cur">Currency</label>
+                <select id="f-cur" class="input"></select>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="label" for="f-base">Base item price</label>
+                <div class="relative">
+                  <input id="f-base" type="number" min="0" step="0.01" inputmode="decimal" class="input pr-14 tabular-nums" placeholder="0.00">
+                  <span id="f-base-cur" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">SAR</span>
+                </div>
+              </div>
+              <div>
+                <label class="label" for="f-rate">Rate to SAR</label>
+                <div class="relative">
+                  <input id="f-rate" type="number" min="0" step="0.0001" inputmode="decimal" class="input pr-12 tabular-nums">
+                  <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">SAR</span>
+                </div>
+                <p id="f-rate-hint" class="text-[11px] text-slate-500 mt-1"></p>
+              </div>
+            </div>
+
+            <!-- Cost modifiers -->
+            <fieldset class="rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-200 dark:divide-slate-800">
+              <legend class="sr-only">Cost modifiers</legend>
+              <div class="flex flex-wrap items-center gap-x-2.5 gap-y-2 px-3 py-2.5">
+                <label class="switch"><input type="checkbox" id="f-tax-on" checked><span class="track"></span></label>
+                <div class="flex-1 min-w-[150px]"><div class="text-sm font-semibold">Tax / VAT</div><div class="text-[11px] text-slate-500 truncate">Percent of base price or a fixed amount</div></div>
+                <div class="flex items-center gap-2 ml-auto"><select id="f-tax-mode" class="input !w-[92px] !py-1.5 !pl-2 text-xs" aria-label="Tax mode"><option value="percent">% of base</option><option value="amount">Fixed</option></select>
+                <input id="f-tax-val" type="number" min="0" step="0.01" inputmode="decimal" class="input !w-20 !py-1.5 !px-2 text-right tabular-nums" value="15" aria-label="Tax value"></div>
+              </div>
+              <div class="flex flex-wrap items-center gap-x-2.5 gap-y-2 px-3 py-2.5">
+                <label class="switch"><input type="checkbox" id="f-duty-on"><span class="track"></span></label>
+                <div class="flex-1 min-w-[150px]"><div class="text-sm font-semibold">Import duties / customs</div><div class="text-[11px] text-slate-500 truncate">For parts shipped from abroad</div></div>
+                <div class="flex items-center gap-2 ml-auto"><select id="f-duty-mode" class="input !w-[92px] !py-1.5 !pl-2 text-xs" aria-label="Duties mode"><option value="percent">% of base</option><option value="amount">Fixed</option></select>
+                <input id="f-duty-val" type="number" min="0" step="0.01" inputmode="decimal" class="input !w-20 !py-1.5 !px-2 text-right tabular-nums" value="5" aria-label="Duties value"></div>
+              </div>
+              <div class="flex flex-wrap items-center gap-x-2.5 gap-y-2 px-3 py-2.5">
+                <label class="switch"><input type="checkbox" id="f-ship-on"><span class="track"></span></label>
+                <div class="flex-1 min-w-[150px]"><div class="text-sm font-semibold">Shipping / delivery</div><div class="text-[11px] text-slate-500 truncate">Courier, freight or delivery fees</div></div>
+                <div class="flex items-center gap-2 ml-auto"><select id="f-ship-mode" class="input !w-[92px] !py-1.5 !pl-2 text-xs" aria-label="Shipping mode"><option value="amount">Fixed</option><option value="percent">% of base</option></select>
+                <input id="f-ship-val" type="number" min="0" step="0.01" inputmode="decimal" class="input !w-20 !py-1.5 !px-2 text-right tabular-nums" placeholder="0.00" aria-label="Shipping value"></div>
+              </div>
+            </fieldset>
+
+            <!-- Split -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="label !mb-0">How is this shared?</span>
+                <button type="button" id="split-equalize" class="btn btn-ghost !px-2 !py-0.5 text-xs hidden">Equalise shares</button>
+              </div>
+              <div class="grid grid-cols-3 gap-2" id="split-modes" role="radiogroup" aria-label="Split mode">
+                <label class="split-opt split-on"><input type="radio" name="split" value="equal" class="sr-only" checked><b>Equal</b><small>All co-founders</small></label>
+                <label class="split-opt"><input type="radio" name="split" value="custom" class="sr-only"><b>Custom</b><small>Pick people and %</small></label>
+                <label class="split-opt"><input type="radio" name="split" value="payer" class="sr-only"><b>Payer only</b><small>Not shared</small></label>
+              </div>
+              <div id="split-custom" class="hidden mt-3 rounded-xl border border-slate-200 dark:border-slate-800 p-3 space-y-2">
+                <div id="split-custom-rows" class="space-y-2"></div>
+                <div class="flex items-center justify-between pt-1">
+                  <span class="text-[11px] text-slate-500">Shares are normalised to 100% when saved.</span>
+                  <span id="split-sum" class="text-[11px] font-semibold"></span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label class="label" for="f-notes">Notes <span class="font-normal text-slate-400">(optional)</span></label>
+              <input id="f-notes" type="text" class="input" placeholder="Invoice number, supplier, order reference" maxlength="200">
+            </div>
+
+            <!-- Live totals -->
+            <div id="preview" class="rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 p-3 text-sm" aria-live="polite"></div>
+
+            <div class="flex items-center gap-2 pt-1">
+              <button type="submit" id="form-submit" class="btn btn-primary flex-1"></button>
+              <button type="button" id="form-reset" class="btn btn-secondary" title="Clear the form"><i data-icon="rotate" class="h-4 w-4"></i><span class="hidden sm:inline">Clear</span></button>
+            </div>
+          </form>
+        </div>
+        <div id="readonly-card" class="hidden card p-5 text-sm text-slate-600 dark:text-slate-300">
+          <p class="font-semibold text-slate-900 dark:text-white">View-only access</p>
+          <p class="mt-1">You can read the ledger and export it, but only co-founders with edit access can add or change entries. Ask the owner to share it with you as an editor.</p>
+        </div>
+      </div>
+
+      <!-- Analytics column -->
+      <div class="lg:col-span-3 space-y-5 sm:space-y-6">
+
+        <!-- Category breakdown -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2 class="card-title"><i data-icon="pie" class="h-4 w-4 text-brand-600 dark:text-brand-400"></i>Spending by category</h2>
+              <p class="card-sub">Where the capital has gone, in SAR.</p>
+            </div>
+          </div>
+          <div class="card-body flex flex-col sm:flex-row items-center gap-5">
+            <div id="cat-donut" class="shrink-0"></div>
+            <div id="cat-list" class="w-full space-y-3"></div>
+          </div>
+        </div>
+
+        <!-- Capital & positions -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2 class="card-title"><i data-icon="banknote" class="h-4 w-4 text-brand-600 dark:text-brand-400"></i>Capital fronted by each co-founder</h2>
+              <p class="card-sub">Who has paid, what their share of the costs is, and where that leaves them.</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="flex items-end justify-between gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Total capital invested</p>
+                <p id="cap-total" class="text-3xl font-extrabold tracking-tight tabular-nums"></p>
+              </div>
+              <p id="cap-meta" class="text-xs text-slate-500 dark:text-slate-400 text-right"></p>
+            </div>
+            <div id="cap-list" class="pt-4 space-y-4"></div>
+          </div>
+        </div>
+
+        <!-- Repayment tracker -->
+        <div class="card" id="repay-card">
+          <div class="card-head">
+            <div>
+              <h2 class="card-title"><i data-icon="scale" class="h-4 w-4 text-brand-600 dark:text-brand-400"></i>Debts and repayments</h2>
+              <p class="card-sub">Who owes whom, and how much has already been paid back.</p>
+            </div>
+          </div>
+          <div class="card-body space-y-4">
+            <div id="rp-overview"></div>
+            <div id="rp-relations" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+            <div id="rp-plan"></div>
+
+            <form id="repay-form" class="rounded-xl border border-slate-200 dark:border-slate-800 p-3 space-y-3 needs-ready needs-write" novalidate>
+              <p class="text-sm font-bold">Record a repayment</p>
+              <div class="grid grid-cols-2 gap-2">
+                <div><label class="label" for="r-from">From</label><select id="r-from" class="input"></select></div>
+                <div><label class="label" for="r-to">To</label><select id="r-to" class="input"></select></div>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="label" for="r-amount">Amount</label>
+                  <div class="relative"><input id="r-amount" type="number" min="0" step="0.01" inputmode="decimal" class="input pr-12 tabular-nums" placeholder="0.00"><span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">SAR</span></div>
+                </div>
+                <div><label class="label" for="r-date">Date</label><input id="r-date" type="datetime-local" class="input"></div>
+              </div>
+              <div class="flex gap-2">
+                <input id="r-note" type="text" class="input flex-1" placeholder="Note, e.g. bank transfer ref" maxlength="120">
+                <button type="submit" class="btn btn-primary shrink-0"><i data-icon="check" class="h-4 w-4"></i>Record</button>
+              </div>
+            </form>
+
+            <div>
+              <button type="button" id="rp-log-toggle" class="btn btn-ghost !px-2 !py-1 text-xs"></button>
+              <div id="rp-log-wrap" class="hidden mt-1"><div id="rp-log"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== Transaction history ===================== -->
+    <section class="card" id="tx-card" aria-label="Transaction history">
+      <div class="card-head flex-col sm:flex-row sm:items-center">
+        <div>
+          <h2 class="card-title"><i data-icon="file" class="h-4 w-4 text-brand-600 dark:text-brand-400"></i>Transaction history</h2>
+          <p class="card-sub" id="tx-summary"></p>
+        </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <div class="relative flex-1 sm:w-64">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><i data-icon="search" class="h-4 w-4"></i></span>
+            <input id="tx-search" type="search" class="input pl-9" placeholder="Search description, payer, notes">
+          </div>
+          <select id="tx-sort" class="input !w-auto" aria-label="Sort">
+            <option value="date-desc">Newest first</option>
+            <option value="date-asc">Oldest first</option>
+            <option value="amt-desc">Highest amount</option>
+            <option value="amt-asc">Lowest amount</option>
+          </select>
+        </div>
+      </div>
+      <div class="px-4 sm:px-5 pb-3 space-y-2">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="text-xs text-slate-500 mr-1">Category</span>
+          <div id="tx-cats" class="flex flex-wrap gap-1.5"></div>
+        </div>
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="text-xs text-slate-500 mr-1">Paid by</span>
+          <div id="tx-payers" class="flex flex-wrap gap-1.5"></div>
+          <button type="button" id="tx-clear" class="chip hidden ml-1 !border-dashed"><i data-icon="x" class="h-3 w-3"></i>Clear filters</button>
+        </div>
+      </div>
+      <div id="tx-bulk" class="hidden mx-4 sm:mx-5 mb-3 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-3 py-2 flex flex-wrap items-center justify-between gap-2"></div>
+
+      <!-- Desktop table -->
+      <div class="overflow-x-auto nice-scroll hidden sm:block border-t border-slate-200 dark:border-slate-800">
+        <table class="min-w-[900px] w-full">
+          <thead class="bg-slate-50 dark:bg-slate-950/50">
+            <tr>
+              <th class="th !pr-0 w-8"><input type="checkbox" id="tx-sel-all" class="h-4 w-4 rounded border-slate-300 accent-brand-600" aria-label="Select all"></th>
+              <th class="th">Date</th>
+              <th class="th">Description</th>
+              <th class="th">Category</th>
+              <th class="th">Payer</th>
+              <th class="th text-right">Original cost</th>
+              <th class="th text-right">Converted SAR</th>
+              <th class="th text-right needs-write">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tx-body"></tbody>
+        </table>
+      </div>
+      <!-- Mobile cards -->
+      <div id="tx-cards" class="sm:hidden divide-y divide-slate-200 dark:divide-slate-800 border-t border-slate-200 dark:border-slate-800"></div>
+      <div id="tx-empty" class="hidden px-5 py-10 text-center text-sm text-slate-500 border-t border-slate-200 dark:border-slate-800"></div>
+    </section>
+
+    <footer class="text-[11px] text-slate-500 dark:text-slate-500 pb-6 space-y-1">
+      <p id="footer-rates"></p>
+      <p id="footer-storage"></p>
+    </footer>
+  </main>
+</div>
+
+<!-- ===================== Settings modal ===================== -->
+<div id="settings-modal" class="hidden fixed inset-0 z-40" aria-hidden="true">
+  <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" data-close-modal></div>
+  <div class="absolute inset-x-0 bottom-0 sm:inset-0 sm:flex sm:items-center sm:justify-center sm:p-6">
+    <div class="card w-full sm:max-w-2xl max-h-[92vh] sm:max-h-[85vh] flex flex-col !rounded-b-none sm:!rounded-2xl" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="card-head items-center">
+        <h2 id="settings-title" class="card-title"><i data-icon="settings" class="h-4 w-4 text-brand-600 dark:text-brand-400"></i>Settings</h2>
+        <button type="button" class="btn-icon" data-close-modal aria-label="Close settings"><i data-icon="x" class="h-4 w-4"></i></button>
+      </div>
+      <div class="px-4 sm:px-5">
+        <div class="flex gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto" id="s-tabs">
+          <button type="button" class="s-tab s-tab-on whitespace-nowrap" data-tab="team">Team</button>
+          <button type="button" class="s-tab whitespace-nowrap" data-tab="rates">Exchange rates</button>
+          <button type="button" class="s-tab whitespace-nowrap" data-tab="data">Defaults and data</button>
+        </div>
+      </div>
+      <div class="card-body pt-4 overflow-y-auto flex-1" style="padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px))">
+        <p id="s-readonly-note" class="hidden mb-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs px-3 py-2">You have view-only access, so these settings cannot be changed from here.</p>
+
+        <fieldset class="s-panel space-y-4 s-editable" data-panel="team">
+          <div>
+            <label class="label" for="s-company">Company or project name</label>
+            <input id="s-company" type="text" class="input" maxlength="60" placeholder="My Startup">
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-sm font-bold">Co-founders</p>
+              <button type="button" id="s-add-founder" class="btn btn-secondary !py-1.5 text-xs"><i data-icon="userplus" class="h-3.5 w-3.5"></i>Add co-founder</button>
+            </div>
+            <div id="s-founders" class="space-y-2"></div>
+            <p class="text-[11px] text-slate-500 mt-2">The primary financier is pre-selected as the payer for new expenses. Someone who already appears in the ledger cannot be removed until their entries are reassigned or deleted.</p>
+          </div>
+        </fieldset>
+
+        <fieldset class="s-panel hidden space-y-3 s-editable" data-panel="rates">
+          <div class="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <p class="text-sm font-bold">SAR per one unit of each currency</p>
+              <p id="s-rates-meta" class="text-[11px] text-slate-500"></p>
+            </div>
+            <button type="button" id="s-rates-reset" class="btn btn-ghost !py-1.5 text-xs">Reset to estimates</button>
+          </div>
+          <div id="s-rates" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+          <p class="text-[11px] text-slate-500">USD and the Gulf currencies are pegged, so those are exact. The others are estimates: type in your bank or card rate. The rate is stored on each expense when you log it, so changing a rate later never rewrites history.</p>
+        </fieldset>
+
+        <div class="s-panel hidden space-y-5" data-panel="data">
+          <fieldset class="s-editable">
+            <p class="text-sm font-bold mb-2">Defaults for new expenses</p>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="label" for="s-tax-default">Tax / VAT %</label><input id="s-tax-default" type="number" min="0" step="0.01" class="input tabular-nums"></div>
+              <div><label class="label" for="s-duty-default">Import duty %</label><input id="s-duty-default" type="number" min="0" step="0.01" class="input tabular-nums"></div>
+            </div>
+          </fieldset>
+          <div>
+            <p class="text-sm font-bold mb-2">Backup and restore</p>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" id="s-export-json" class="btn btn-secondary"><i data-icon="download" class="h-4 w-4"></i>Download backup</button>
+              <label class="btn btn-secondary cursor-pointer needs-write"><i data-icon="upload" class="h-4 w-4"></i>Restore from backup<input id="s-import-file" type="file" accept="application/json,.json" class="sr-only"></label>
+            </div>
+            <p id="s-storage-info" class="text-[11px] text-slate-500 mt-2 flex items-start gap-1.5"></p>
+          </div>
+          <div class="rounded-xl border border-rose-200 dark:border-rose-900/60 p-3 needs-write">
+            <p class="text-sm font-bold text-rose-700 dark:text-rose-400">Danger zone</p>
+            <p class="text-xs text-slate-500 mt-1 mb-2">Deletes every expense, repayment and setting in this ledger, for everyone.</p>
+            <button type="button" id="s-clear" class="btn btn-danger !py-1.5 text-xs"><i data-icon="trash" class="h-3.5 w-3.5"></i>Clear all data</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirmation dialog (replaces window.confirm, which sandboxed frames may block) -->
+<div id="confirm-modal" class="hidden fixed inset-0 z-[60]" aria-hidden="true">
+  <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" data-close-confirm></div>
+  <div class="absolute inset-0 flex items-end sm:items-center justify-center p-4">
+    <div class="card w-full sm:max-w-md p-5" role="alertdialog" aria-modal="true" aria-labelledby="confirm-text">
+      <p id="confirm-text" class="text-sm text-slate-700 dark:text-slate-200"></p>
+      <div class="flex justify-end gap-2 mt-4">
+        <button type="button" id="confirm-cancel" class="btn btn-secondary">Cancel</button>
+        <button type="button" id="confirm-ok" class="btn btn-primary">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div id="toasts" class="fixed right-4 z-50 space-y-2 w-[calc(100%-2rem)] sm:w-80" aria-live="polite"></div>
+
+<!-- Printable statement (populated on demand) -->
+<div id="statement"></div>
+
+<script>
+(() => {
+'use strict';
+
+/* =========================================================
+   1. CONSTANTS
+   ========================================================= */
+const STORAGE_KEY = 'cofounder-ledger:v2';   // local fallback when no shared store is available
+const THEME_KEY   = 'cfl:theme';
+const ONBOARD_KEY = 'cfl:onboard-dismissed';
+const BASE        = 'SAR';                   // every balance is kept in SAR
+const EPS         = 0.005;                   // half a halala: below this we call it zero
+
+const CATEGORIES = [
+  { id: 'Development',            icon: 'code',      color: '#2563eb' },
+  { id: 'Marketing',              icon: 'megaphone', color: '#db2777' },
+  { id: 'Parts',                  icon: 'package',   color: '#d97706' },
+  { id: 'Legal/Admin',            icon: 'landmark',  color: '#0891b2' },
+  { id: 'Software/Subscriptions', icon: 'cloud',     color: '#7c3aed' },
+  { id: 'Other',                  icon: 'dots',      color: '#64748b' }
+];
+
+const CURRENCIES = [
+  ['SAR', 'Saudi Riyal'], ['USD', 'US Dollar'], ['EUR', 'Euro'], ['GBP', 'British Pound'],
+  ['JPY', 'Japanese Yen'], ['AED', 'UAE Dirham'], ['KWD', 'Kuwaiti Dinar'], ['QAR', 'Qatari Riyal'],
+  ['BHD', 'Bahraini Dinar'], ['OMR', 'Omani Rial'], ['EGP', 'Egyptian Pound'], ['INR', 'Indian Rupee'],
+  ['CNY', 'Chinese Yuan'], ['TRY', 'Turkish Lira'], ['CAD', 'Canadian Dollar'], ['AUD', 'Australian Dollar'],
+  ['CHF', 'Swiss Franc']
+];
+
+// SAR per 1 unit. USD and the Gulf pegs are exact; the rest are estimates to edit.
+const DEFAULT_RATES = {
+  SAR: 1, USD: 3.75, EUR: 4.10, GBP: 4.80, JPY: 0.025, AED: 1.021, KWD: 12.20, QAR: 1.03,
+  BHD: 9.95, OMR: 9.74, EGP: 0.078, INR: 0.0425, CNY: 0.52, TRY: 0.09, CAD: 2.70, AUD: 2.50, CHF: 4.30
+};
+
+const FOUNDER_COLORS = ['#178066', '#2563eb', '#d97706', '#db2777', '#7c3aed', '#0891b2', '#ea580c', '#64748b'];
+
+/* =========================================================
+   2. ICONS (Lucide paths, inlined so the page has no icon dependency)
+   ========================================================= */
+const ICONS = {
+  wallet: '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
+  receipt: '<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/>',
+  layers: '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
+  scale: '<path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>',
+  plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  pencil: '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>',
+  trash: '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+  upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
+  moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
+  settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  userplus: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  chevron: '<path d="m6 9 6 6 6-6"/>',
+  arrow: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+  pie: '<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>',
+  file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+  table: '<path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/>',
+  printer: '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/>',
+  refresh: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+  alert: '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>',
+  info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+  coins: '<circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/>',
+  banknote: '<rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>',
+  rotate: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+  code: '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
+  megaphone: '<path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>',
+  package: '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+  landmark: '<line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/>',
+  cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
+  dots: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+  database: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/>',
+  eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>'
+};
+const icon = (name, cls = 'h-4 w-4') =>
+  `<svg xmlns="http://www.w3.org/2000/svg" class="${cls} shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
+
+function hydrateIcons(root = document) {
+  $$('i[data-icon]', root).forEach(el => {
+    el.insertAdjacentHTML('beforebegin', icon(el.dataset.icon, el.getAttribute('class') || 'h-4 w-4'));
+    el.remove();
+  });
+}
+
+/* =========================================================
+   3. SMALL UTILITIES
+   ========================================================= */
+const $  = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+const uid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9);
+const num = v => { const n = typeof v === 'number' ? v : parseFloat(String(v ?? '').replace(/,/g, '')); return Number.isFinite(n) ? n : 0; };
+const round2 = n => Math.round((num(n) + Number.EPSILON) * 100) / 100;
+const pad = n => String(n).padStart(2, '0');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtNum = (n, d = 2) => new Intl.NumberFormat('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }).format(num(n));
+const fmtPct = v => String(Math.round(num(v) * 100) / 100);
+const fmtRate = r => String(Math.round(num(r) * 10000) / 10000);
+function fmtMoney(n, cur = BASE) {
+  try { return new Intl.NumberFormat('en-US', { style: 'currency', currency: cur, currencyDisplay: 'code' }).format(num(n)).replace(/\u00a0/g, ' '); }
+  catch (e) { return cur + ' ' + fmtNum(n); }
+}
+function fmtDate(s, withTime = true) {
+  const d = new Date(s); if (isNaN(d)) return '—';
+  return d.toLocaleString('en-GB', Object.assign({ day: '2-digit', month: 'short', year: 'numeric' }, withTime ? { hour: '2-digit', minute: '2-digit' } : {}));
+}
+const nowLocal = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const fileStamp = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`; };
+const initials = n => (String(n || '').trim().split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase()) || '?';
+const toggleSet = (set, v) => { set.has(v) ? set.delete(v) : set.add(v); };
+const chunk = (arr, n) => arr.reduce((acc, x, i) => { const k = Math.floor(i / n); (acc[k] = acc[k] || []).push(x); return acc; }, []);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const slug = s => String(s || 'ledger').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'ledger';
+const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } };
+const avatar = (f, size = 'h-7 w-7 text-[10px]') => f
+  ? `<span class="inline-flex items-center justify-center rounded-full font-bold text-white shrink-0 ${size}" style="background:${esc(f.color)}">${esc(initials(f.name))}</span>`
+  : `<span class="inline-flex items-center justify-center rounded-full font-bold text-white shrink-0 bg-slate-400 ${size}">?</span>`;
+const catBadge = id => { const c = CATEGORIES.find(x => x.id === id) || CATEGORIES[CATEGORIES.length - 1]; return `<span class="badge" style="background:${c.color}1a;color:${c.color}">${icon(c.icon, 'h-3 w-3')}${esc(c.id)}</span>`; };
+
+/* =========================================================
+   4. STATE, RUNTIME CAPABILITIES AND STORAGE
+   The page runs in one of two modes:
+   - cloud: inside the claude.ai viewer, data lives in the artifact's shared
+     database and every viewer sees changes live.
+   - local: opened as a plain file (or when the shared store is unavailable),
+     data is kept in this browser's localStorage.
+   ========================================================= */
+const state = { company: '', primaryId: '', founders: [], rates: {}, ratesSource: '', ratesUpdatedAt: null, defaults: { taxPct: 15, dutyPct: 5 }, expenses: [], repayments: [], settingsUpdatedAt: null };
+const caps = { db: null, user: null, downloads: null, mode: 'local', readOnly: false, writeKnown: null, viewerId: null };
+const runtime = { ready: false, status: 'connecting', storageOk: true, subs: [], seen: { settings: false, expenses: false, repayments: false } };
+const ui = { search: '', sort: 'date-desc', cats: new Set(), payers: new Set(), selected: new Set(), editingId: null, showLog: false, tab: 'team' };
+let lastDeleted = null;
+const hasClaude = !!(window.claude && typeof window.claude.use === 'function');
+
+function settingsDefaults() {
+  return {
+    company: 'My Startup', primaryId: 'f1',
+    founders: [{ id: 'f1', name: 'Co-Founder 1', color: FOUNDER_COLORS[0] }, { id: 'f2', name: 'Co-Founder 2', color: FOUNDER_COLORS[1] }, { id: 'f3', name: 'Co-Founder 3', color: FOUNDER_COLORS[2] }],
+    rates: Object.assign({}, DEFAULT_RATES), ratesSource: 'Estimated defaults', ratesUpdatedAt: null,
+    defaults: { taxPct: 15, dutyPct: 5 }
+  };
+}
+// Load settings fields into state from a settings document (or defaults when absent).
+function applySettings(data) {
+  const d = settingsDefaults(), s = data || {};
+  state.company = (typeof s.company === 'string' && s.company.trim()) ? s.company.trim() : d.company;
+  state.founders = Array.isArray(s.founders) && s.founders.length
+    ? s.founders.filter(f => f && f.id).map((f, i) => ({ id: String(f.id), name: String(f.name || `Co-Founder ${i + 1}`), color: /^#[0-9a-f]{6}$/i.test(f.color || '') ? f.color : FOUNDER_COLORS[i % FOUNDER_COLORS.length] }))
+    : d.founders;
+  state.primaryId = state.founders.some(f => f.id === s.primaryId) ? s.primaryId : state.founders[0].id;
+  state.rates = Object.assign({}, DEFAULT_RATES, s.rates || {}); state.rates.SAR = 1;
+  state.ratesSource = s.ratesSource || d.ratesSource; state.ratesUpdatedAt = s.ratesUpdatedAt || null;
+  state.defaults = Object.assign({}, d.defaults, s.defaults || {});
+  state.settingsUpdatedAt = s.updatedAt || null;
+}
+const settingsBody = () => ({ company: state.company, primaryId: state.primaryId, founders: state.founders.map(f => ({ id: f.id, name: f.name, color: f.color })), rates: Object.assign({}, state.rates), ratesSource: state.ratesSource, ratesUpdatedAt: state.ratesUpdatedAt, defaults: Object.assign({}, state.defaults), updatedAt: new Date().toISOString() });
+const cleanDoc = o => JSON.parse(JSON.stringify(o));   // plain JSON copy (drops undefined, unfreezes)
+
+/* ---------- Local mode ---------- */
+function loadLocal() {
+  const raw = lsGet(STORAGE_KEY) || lsGet('cofounder-ledger:v1');
+  if (!raw) { applySettings(null); state.expenses = []; state.repayments = []; return; }
+  try {
+    const p = JSON.parse(raw);
+    applySettings(p); state.expenses = Array.isArray(p.expenses) ? p.expenses.filter(e => e && e.id) : []; state.repayments = Array.isArray(p.repayments) ? p.repayments.filter(r => r && r.id) : [];
+  } catch (e) { applySettings(null); state.expenses = []; state.repayments = []; }
+}
+function saveLocal() {
+  runtime.storageOk = lsSet(STORAGE_KEY, JSON.stringify(Object.assign({ version: 2 }, settingsBody(), { expenses: state.expenses, repayments: state.repayments })));
+  setStatus(runtime.storageOk ? 'local' : 'nostorage');
+}
+function probeStorage() { runtime.storageOk = lsSet(STORAGE_KEY + ':probe', '1'); try { localStorage.removeItem(STORAGE_KEY + ':probe'); } catch (e) { /* ignore */ } }
+
+/* ---------- Cloud mode ---------- */
+async function bootCapabilities() {
+  const [db, user, downloads] = await Promise.all([claude.use('db'), claude.use('user'), claude.use('downloads')]);
+  caps.db = db; caps.user = user; caps.downloads = downloads;
+  if (user) {
+    try { caps.writeKnown = await user.can('data.write'); } catch (e) { caps.writeKnown = null; }
+    try { caps.viewerId = await user.id(); } catch (e) { caps.viewerId = null; }
+    if (caps.writeKnown === false) caps.readOnly = true;
+  }
+}
+function startCloud() {
+  caps.mode = 'cloud';
+  const db = caps.db;
+  const onErr = err => {
+    console.warn('Shared store subscription ended', err);
+    if (err && err.code === 'revoked') { setReadOnly(true); setStatus('revoked'); }
+    else setStatus('lost');
+  };
+  runtime.subs.push(db.doc('settings/main').onSnapshot(snap => {
+    if (!settingsSync.dirty) applySettings(snap.exists ? snap.data() : null);
+    runtime.seen.settings = true; onCloudTick();
+  }, onErr));
+  runtime.subs.push(db.collection('expenses').onSnapshot(snap => {
+    state.expenses = snap.docs.map(d => Object.assign({}, d.data(), { id: d.id }));
+    runtime.seen.expenses = true; onCloudTick();
+  }, onErr));
+  runtime.subs.push(db.collection('repayments').onSnapshot(snap => {
+    state.repayments = snap.docs.map(d => Object.assign({}, d.data(), { id: d.id }));
+    runtime.seen.repayments = true; onCloudTick();
+  }, onErr));
+}
+function onCloudTick() {
+  if (!runtime.ready) {
+    if (!(runtime.seen.settings && runtime.seen.expenses && runtime.seen.repayments)) return;
+    markReady('cloud');
+    return;
+  }
+  renderAll();
+}
+function markReady(status) {
+  runtime.ready = true;
+  document.body.classList.remove('is-loading');
+  setStatus(status);
+  renderFounderInputs(); resetForm(true); $('#r-date').value = nowLocal();
+  renderAll();
+}
+function setReadOnly(flag) {
+  caps.readOnly = !!flag;
+  document.body.classList.toggle('is-readonly', caps.readOnly);
+  $('#readonly-card').classList.toggle('hidden', !caps.readOnly);
+  $('#s-readonly-note').classList.toggle('hidden', !caps.readOnly);
+  $$('#settings-modal fieldset.s-editable').forEach(f => { f.disabled = caps.readOnly; });
+  if (runtime.ready) renderAll();
+}
+
+// Run a shared-store write with the error handling the contract asks for.
+async function cloudWrite(fn) {
+  try { await fn(); return true; }
+  catch (e) {
+    const code = e && e.code;
+    if (code === 'invalid_argument' && caps.writeKnown !== true) { setReadOnly(true); toast('You have view-only access to this ledger. Ask the owner to share it with you as an editor.', 'warn', { duration: 8000 }); }
+    else if (code === 'quota_exceeded') toast('The shared ledger is full. Export a backup, then delete old entries.', 'error', { duration: 8000 });
+    else if (code === 'unavailable') {
+      await sleep(400 + Math.random() * 500);
+      try { await fn(); return true; } catch (e2) { toast('The shared ledger could not be reached. Try again in a moment.', 'error'); }
+    }
+    else if (code === 'revoked') { setReadOnly(true); setStatus('revoked'); }
+    else { console.warn('Write failed', e); toast('Could not save: ' + ((e && e.message) || 'unknown error'), 'error'); }
+    return false;
+  }
+}
+
+// Settings writes are coalesced: one write per pause while typing.
+const settingsSync = { dirty: false, timer: null, inFlight: false, queued: false };
+function scheduleSettingsWrite(delay = 600) {
+  if (caps.mode !== 'cloud') { saveLocal(); return; }
+  settingsSync.dirty = true;
+  clearTimeout(settingsSync.timer);
+  settingsSync.timer = setTimeout(flushSettings, delay);
+}
+async function flushSettings() {
+  settingsSync.timer = null;
+  if (settingsSync.inFlight) { settingsSync.queued = true; return; }
+  settingsSync.inFlight = true;
+  await cloudWrite(() => caps.db.doc('settings/main').set(settingsBody()));
+  settingsSync.inFlight = false;
+  if (settingsSync.queued) { settingsSync.queued = false; flushSettings(); return; }
+  if (!settingsSync.timer) settingsSync.dirty = false;
+}
+
+/* ---------- Store facade used by the UI (works in both modes) ---------- */
+const store = {
+  async putExpense(e) {
+    if (caps.mode === 'cloud') return cloudWrite(() => caps.db.collection('expenses').doc(e.id).set(cleanDoc(e)));
+    const i = state.expenses.findIndex(x => x.id === e.id); if (i > -1) state.expenses[i] = e; else state.expenses.push(e);
+    saveLocal(); renderAll(); return true;
+  },
+  async removeExpenses(ids) {
+    if (caps.mode === 'cloud') { let ok = true; for (const id of ids) ok = (await cloudWrite(() => caps.db.collection('expenses').doc(id).delete())) && ok; return ok; }
+    state.expenses = state.expenses.filter(e => !ids.includes(e.id)); saveLocal(); renderAll(); return true;
+  },
+  async putRepayment(r) {
+    if (caps.mode === 'cloud') return cloudWrite(() => caps.db.collection('repayments').doc(r.id).set(cleanDoc(r)));
+    const i = state.repayments.findIndex(x => x.id === r.id); if (i > -1) state.repayments[i] = r; else state.repayments.push(r);
+    saveLocal(); renderAll(); return true;
+  },
+  async removeRepayment(id) {
+    if (caps.mode === 'cloud') return cloudWrite(() => caps.db.collection('repayments').doc(id).delete());
+    state.repayments = state.repayments.filter(r => r.id !== id); saveLocal(); renderAll(); return true;
+  },
+  async clearAll() {
+    if (caps.mode === 'cloud') {
+      for (const group of chunk(state.expenses.map(e => e.id), 5)) await Promise.all(group.map(id => cloudWrite(() => caps.db.collection('expenses').doc(id).delete())));
+      for (const group of chunk(state.repayments.map(r => r.id), 5)) await Promise.all(group.map(id => cloudWrite(() => caps.db.collection('repayments').doc(id).delete())));
+      applySettings(null); await cloudWrite(() => caps.db.doc('settings/main').set(settingsBody()));
+      return true;
+    }
+    applySettings(null); state.expenses = []; state.repayments = []; saveLocal(); renderAll(); return true;
+  },
+  async replaceAll(data) {
+    const exps = data.expenses.filter(e => e && e.id), reps = (data.repayments || []).filter(r => r && r.id);
+    if (caps.mode === 'cloud') {
+      await this.clearAll();
+      applySettings(data); await cloudWrite(() => caps.db.doc('settings/main').set(settingsBody()));
+      for (const group of chunk(exps, 5)) await Promise.all(group.map(e => cloudWrite(() => caps.db.collection('expenses').doc(String(e.id)).set(cleanDoc(e)))));
+      for (const group of chunk(reps, 5)) await Promise.all(group.map(r => cloudWrite(() => caps.db.collection('repayments').doc(String(r.id)).set(cleanDoc(r)))));
+      return true;
+    }
+    applySettings(data); state.expenses = exps; state.repayments = reps; saveLocal(); renderAll(); return true;
+  }
+};
+
+/* ---------- Downloads (viewer capability when published, plain download otherwise) ---------- */
+async function saveFile(name, content) {
+  if (caps.downloads) {
+    try { await caps.downloads.save({ filename: name, data: content }); return true; }
+    catch (e) {
+      const code = e && e.code;
+      if (code === 'declined') return false;
+      if (code === 'rate_limited') toast('Another download is still waiting for your answer.', 'warn');
+      else toast('Downloads are not available in this view.', 'warn');
+      return false;
+    }
+  }
+  try {
+    const blob = new Blob([content]); const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500); return true;
+  } catch (e) { toast('Could not start the download.', 'error'); return false; }
+}
+
+/* =========================================================
+   5. CALCULATIONS: totals, shares, balances
+   ========================================================= */
+const founderById = id => state.founders.find(f => f.id === id);
+const founderName = id => { const f = founderById(id); return f ? f.name : 'Former member'; };
+const modAmount = (base, m) => (!m || !m.on) ? 0 : (m.mode === 'percent' ? base * num(m.value) / 100 : num(m.value));
+
+function totalsOf(e) {
+  const base = num(e.base);
+  const tax = modAmount(base, e.tax), duty = modAmount(base, e.duty), ship = modAmount(base, e.ship);
+  const total = base + tax + duty + ship;
+  const rate = e.currency === BASE ? 1 : (num(e.rate) || 0);
+  return { base, tax, duty, ship, total, rate, totalSAR: total * rate };
+}
+function sharesOf(e) {
+  const { totalSAR } = totalsOf(e);
+  const ids = state.founders.map(f => f.id);
+  const split = e.split || { mode: 'equal' };
+  const weights = {};
+  if (split.mode === 'payer') weights[e.payerId] = 1;
+  else if (split.mode === 'custom') Object.entries(split.shares || {}).forEach(([id, w]) => { if (num(w) > 0) weights[id] = num(w); });
+  else (split.participants && split.participants.length ? split.participants : ids).forEach(id => { weights[id] = 1; });
+  Object.keys(weights).forEach(id => { if (!ids.includes(id)) delete weights[id]; });
+  const sum = Object.values(weights).reduce((a, b) => a + b, 0);
+  if (!(sum > 0)) return { [e.payerId]: totalSAR };
+  const out = {}; Object.entries(weights).forEach(([id, w]) => { out[id] = totalSAR * w / sum; }); return out;
+}
+function settlementPlan(net) {
+  const debtors = [], creditors = [];
+  Object.entries(net).forEach(([id, v]) => { if (v < -EPS) debtors.push({ id, amt: -v }); else if (v > EPS) creditors.push({ id, amt: v }); });
+  debtors.sort((a, b) => b.amt - a.amt); creditors.sort((a, b) => b.amt - a.amt);
+  const plan = []; let i = 0, j = 0;
+  while (i < debtors.length && j < creditors.length) {
+    const amt = Math.min(debtors[i].amt, creditors[j].amt);
+    plan.push({ from: debtors[i].id, to: creditors[j].id, amount: amt });
+    debtors[i].amt -= amt; creditors[j].amt -= amt;
+    if (debtors[i].amt < EPS) i++;
+    if (creditors[j].amt < EPS) j++;
+  }
+  return plan;
+}
+function computeLedger() {
+  const ids = state.founders.map(f => f.id);
+  const zero = () => Object.fromEntries(ids.map(id => [id, 0]));
+  const paid = zero(), share = zero();
+  const owes = {}, repaid = {};
+  ids.forEach(a => { owes[a] = zero(); repaid[a] = zero(); });
+  const byCat = {}; CATEGORIES.forEach(c => { byCat[c.id] = 0; });
+  const currencies = new Set();
+  let totalSAR = 0;
+  state.expenses.forEach(e => {
+    const t = totalsOf(e);
+    totalSAR += t.totalSAR;
+    byCat[e.category] = (byCat[e.category] || 0) + t.totalSAR;
+    currencies.add(e.currency);
+    if (paid[e.payerId] !== undefined) paid[e.payerId] += t.totalSAR;
+    Object.entries(sharesOf(e)).forEach(([id, amt]) => {
+      if (share[id] === undefined) return;
+      share[id] += amt;
+      if (id !== e.payerId && owes[id] && owes[id][e.payerId] !== undefined) owes[id][e.payerId] += amt;
+    });
+  });
+  let totalRepaid = 0;
+  state.repayments.forEach(r => {
+    if (repaid[r.fromId] && repaid[r.fromId][r.toId] !== undefined) { repaid[r.fromId][r.toId] += num(r.amount); totalRepaid += num(r.amount); }
+  });
+  const net = zero();
+  ids.forEach(id => { net[id] = paid[id] - share[id]; });
+  ids.forEach(a => ids.forEach(b => { net[a] += repaid[a][b]; net[b] -= repaid[a][b]; }));
+  const relations = [];
+  ids.forEach(a => ids.forEach(b => {
+    if (a !== b && owes[a][b] > EPS) relations.push({ from: a, to: b, gross: owes[a][b], repaid: repaid[a][b], remaining: Math.max(0, owes[a][b] - repaid[a][b]) });
+  }));
+  relations.sort((x, y) => y.remaining - x.remaining);
+  const totalOwed = relations.reduce((s, r) => s + r.gross, 0);
+  const outstanding = ids.reduce((s, id) => s + Math.max(0, net[id]), 0);
+  return { ids, paid, share, net, owes, repaid, relations, totalSAR, totalOwed, totalRepaid, outstanding, byCat, currencies, plan: settlementPlan(net) };
+}
+
+/* =========================================================
+   6. RENDERING
+   ========================================================= */
+function renderAll() {
+  const L = computeLedger();
+  renderCompany(); renderOnboard(); renderStats(L); renderCategories(L); renderCapital(L);
+  renderFounderInputs(); renderRepayments(L); renderFilters(); renderTable(); renderFooter(); renderStatus();
+  renderPreview();
+  if (!$('#settings-modal').classList.contains('hidden')) renderSettings(true);
+}
+function renderCompany() {
+  const n = state.founders.length;
+  $('#company-label').textContent = `${state.company || 'My Startup'}, ${n} co-founder${n === 1 ? '' : 's'}`;
+  document.title = `${state.company || 'My Startup'} – Co-Founder Expense Ledger`;
+}
+function renderOnboard() {
+  const placeholders = state.founders.every(f => /^Co-Founder \d+$/.test(f.name));
+  $('#onboard').classList.toggle('hidden', !(runtime.ready && placeholders && !lsGet(ONBOARD_KEY) && !caps.readOnly));
+}
+function dismissOnboard() { lsSet(ONBOARD_KEY, '1'); renderOnboard(); }
+
+function setStatus(s) { runtime.status = s; renderStatus(); }
+function renderStatus() {
+  const el = $('#status'); if (!el) return;
+  const dot = c => `<span class="h-2 w-2 rounded-full ${c}"></span>`;
+  const map = {
+    connecting: [dot('bg-amber-500 animate-pulse'), 'Connecting', 'Opening the shared ledger'],
+    cloud:      [dot('bg-brand-500'), caps.readOnly ? 'Shared, view only' : 'Shared, live', 'Everyone with access sees the same ledger, updated live'],
+    local:      [dot('bg-slate-400'), 'This device only', 'Saved in this browser only. Export a backup to move it.'],
+    nostorage:  [dot('bg-amber-500 animate-pulse'), 'Not saved', 'Storage is blocked here, so entries will not survive a reload'],
+    lost:       [dot('bg-rose-500'), 'Connection lost', 'Live updates stopped. Reload the page to reconnect.'],
+    revoked:    [dot('bg-rose-500'), 'Access changed', 'Your access to this ledger changed. Reload to continue.']
+  };
+  const [d, label, title] = map[runtime.status] || map.connecting;
+  el.innerHTML = `${d}<span class="hidden sm:inline">${label}</span>`; el.title = title;
+  const n = $('#notice');
+  if (runtime.status === 'lost' || runtime.status === 'revoked') {
+    n.classList.remove('hidden');
+    n.innerHTML = `<div class="h-9 w-9 shrink-0 rounded-xl bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400 flex items-center justify-center">${icon('alert', 'h-4 w-4')}</div><div class="flex-1 text-sm"><p class="font-semibold">${esc(label)}</p><p class="text-slate-600 dark:text-slate-300">${esc(title)}</p></div><button type="button" class="btn btn-secondary" onclick="location.reload()">Reload</button>`;
+  } else n.classList.add('hidden');
+}
+
+function renderStats(L) {
+  const count = state.expenses.length;
+  const active = CATEGORIES.filter(c => L.byCat[c.id] > EPS);
+  const top = active.slice().sort((a, b) => L.byCat[b.id] - L.byCat[a.id])[0];
+  const last = state.expenses.slice().sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+  const repaidPct = L.totalOwed > EPS ? Math.min(100, L.totalRepaid / L.totalOwed * 100) : 0;
+  const cards = [
+    { label: 'Total spent', value: fmtNum(L.totalSAR), unit: 'SAR', icon: 'wallet', tone: 'bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400',
+      sub: count ? `${L.currencies.size} currenc${L.currencies.size === 1 ? 'y' : 'ies'}, averaging ${fmtNum(L.totalSAR / count)} per item` : 'Nothing logged yet' },
+    { label: 'Items logged', value: String(count), unit: '', icon: 'receipt', tone: 'bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400',
+      sub: last ? `Latest on ${fmtDate(last.date, false)}` : 'Log your first expense below' },
+    { label: 'Active categories', value: String(active.length), unit: `of ${CATEGORIES.length}`, icon: 'layers', tone: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
+      sub: top ? `Largest: ${top.id} at ${fmtPct(L.byCat[top.id] / L.totalSAR * 100)}%` : 'No categories in use' },
+    { label: 'Outstanding balance', value: fmtNum(L.outstanding), unit: 'SAR', icon: 'scale',
+      tone: L.outstanding > EPS ? 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
+      sub: L.totalOwed > EPS ? `${fmtPct(repaidPct)}% of debts already repaid` : 'Nothing to settle' }
+  ];
+  $('#stats').innerHTML = cards.map(c => `
+    <div class="card p-4 sm:p-5 flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <p class="text-xs font-semibold text-slate-500 dark:text-slate-400">${c.label}</p>
+        <p class="stat-value mt-1 truncate">${c.value}${c.unit ? `<span class="text-xs sm:text-sm font-semibold text-slate-400 ml-1">${c.unit}</span>` : ''}</p>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 truncate">${esc(c.sub)}</p>
+      </div>
+      <div class="h-9 w-9 shrink-0 rounded-xl flex items-center justify-center ${c.tone}">${icon(c.icon, 'h-4 w-4')}</div>
+    </div>`).join('');
+}
+
+function donut(parts, total) {
+  const r = 38, c = 2 * Math.PI * r; let off = 0;
+  const segs = total > EPS ? parts.map(p => {
+    const len = p.value / total * c;
+    const s = `<circle cx="50" cy="50" r="${r}" fill="none" stroke="${p.color}" stroke-width="14" stroke-dasharray="${len} ${c - len}" stroke-dashoffset="${-off}" transform="rotate(-90 50 50)"><title>${esc(p.id)}: ${fmtMoney(p.value)}</title></circle>`;
+    off += len; return s;
+  }).join('') : '';
+  return `<svg viewBox="0 0 100 100" class="w-36 h-36 sm:w-40 sm:h-40" role="img" aria-label="Spending by category">
+    <circle cx="50" cy="50" r="${r}" fill="none" stroke-width="14" class="stroke-slate-100 dark:stroke-slate-800"/>${segs}
+    <text x="50" y="48" text-anchor="middle" font-size="9" font-weight="800" class="fill-slate-900 dark:fill-white">${fmtNum(total, 0)}</text>
+    <text x="50" y="58" text-anchor="middle" font-size="5" class="fill-slate-500">SAR in total</text></svg>`;
+}
+function renderCategories(L) {
+  const total = L.totalSAR;
+  const parts = CATEGORIES.map(c => ({ id: c.id, color: c.color, value: L.byCat[c.id] || 0 })).filter(p => p.value > EPS).sort((a, b) => b.value - a.value);
+  $('#cat-donut').innerHTML = donut(parts, total);
+  $('#cat-list').innerHTML = parts.length ? parts.map(p => {
+    const pct = total > EPS ? p.value / total * 100 : 0;
+    return `<div>
+      <div class="flex items-center justify-between gap-2 text-sm">
+        <span class="flex items-center gap-2 min-w-0"><span class="h-2.5 w-2.5 rounded-sm shrink-0" style="background:${p.color}"></span><span class="truncate">${esc(p.id)}</span></span>
+        <span class="tabular-nums font-semibold shrink-0">${fmtMoney(p.value)} <span class="text-xs font-medium text-slate-400">${fmtPct(pct)}%</span></span>
+      </div>
+      <div class="bar mt-1.5 !h-1.5"><div style="width:${pct}%;background:${p.color}"></div></div>
+    </div>`;
+  }).join('') : `<p class="text-sm text-slate-500">No spending yet. Each category appears here once it has an expense.</p>`;
+}
+function renderCapital(L) {
+  const total = L.totalSAR, n = state.expenses.length, m = state.founders.length;
+  $('#cap-total').textContent = fmtMoney(total);
+  $('#cap-meta').textContent = `${n} expense${n === 1 ? '' : 's'} across ${m} co-founder${m === 1 ? '' : 's'}`;
+  $('#cap-list').innerHTML = state.founders.map(f => {
+    const paid = L.paid[f.id] || 0, share = L.share[f.id] || 0, net = L.net[f.id] || 0;
+    const pct = total > EPS ? paid / total * 100 : 0;
+    const pos = Math.abs(net) < EPS
+      ? `<span class="badge bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">${icon('check', 'h-3 w-3')}Settled</span>`
+      : net > 0 ? `<span class="badge bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400">Is owed ${fmtMoney(net)}</span>`
+                : `<span class="badge bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400">Owes ${fmtMoney(-net)}</span>`;
+    return `<div>
+      <div class="flex items-center justify-between gap-2 text-sm">
+        <div class="flex items-center gap-2 min-w-0">${avatar(f)}<span class="font-semibold truncate">${esc(f.name)}</span>${f.id === state.primaryId ? `<span class="badge bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">Primary</span>` : ''}</div>
+        <div class="text-right shrink-0"><span class="font-bold tabular-nums">${fmtMoney(paid)}</span><span class="text-xs text-slate-400"> (${fmtPct(pct)}%)</span></div>
+      </div>
+      <div class="bar mt-1.5"><div style="width:${pct}%;background:${esc(f.color)}"></div></div>
+      <div class="flex items-center justify-between gap-2 mt-1.5 text-[11px] text-slate-500"><span>Share of costs <span class="tabular-nums font-semibold text-slate-700 dark:text-slate-300">${fmtMoney(share)}</span></span>${pos}</div>
+    </div>`;
+  }).join('');
+}
+function renderRepayments(L) {
+  const pct = L.totalOwed > EPS ? Math.min(100, L.totalRepaid / L.totalOwed * 100) : 0;
+  $('#rp-overview').innerHTML = `
+    <div class="flex items-end justify-between gap-3">
+      <div><p class="text-xs text-slate-500 dark:text-slate-400">Outstanding to settle</p><p class="text-2xl font-extrabold tracking-tight tabular-nums">${fmtMoney(L.outstanding)}</p></div>
+      <div class="text-right text-xs text-slate-500 dark:text-slate-400"><div>Repaid ${fmtMoney(Math.min(L.totalRepaid, L.totalOwed))} of ${fmtMoney(L.totalOwed)}</div><div class="font-bold text-slate-700 dark:text-slate-200">${fmtPct(pct)}% repaid</div></div>
+    </div>
+    <div class="bar mt-2 !h-2.5"><div class="bg-brand-500" style="width:${pct}%"></div></div>`;
+  $('#rp-relations').innerHTML = L.relations.length ? L.relations.map(r => {
+    const p = r.gross > EPS ? Math.min(100, r.repaid / r.gross * 100) : 0;
+    const done = r.remaining < EPS;
+    return `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3">
+      <div class="flex items-center justify-between gap-2 text-sm">
+        <div class="flex items-center gap-1.5 min-w-0">${avatar(founderById(r.from), 'h-6 w-6 text-[9px]')}<span class="font-semibold truncate">${esc(founderName(r.from))}</span><span class="text-slate-400">${icon('arrow', 'h-3.5 w-3.5')}</span>${avatar(founderById(r.to), 'h-6 w-6 text-[9px]')}<span class="font-semibold truncate">${esc(founderName(r.to))}</span></div>
+        <span class="tabular-nums font-bold shrink-0 ${done ? 'text-emerald-600 dark:text-emerald-400' : ''}">${done ? 'Settled' : fmtMoney(r.remaining)}</span>
+      </div>
+      <div class="bar mt-2"><div class="${done ? 'bg-emerald-500' : 'bg-brand-500'}" style="width:${p}%"></div></div>
+      <div class="flex justify-between text-[11px] text-slate-500 mt-1"><span>Owed ${fmtMoney(r.gross)}, repaid ${fmtMoney(r.repaid)}</span><span>${fmtPct(p)}%</span></div>
+    </div>`;
+  }).join('') : `<div class="md:col-span-2 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-4 text-sm text-slate-500 text-center">No debts yet. Once an expense is shared, this shows who owes the payer.</div>`;
+  $('#rp-plan').innerHTML = L.plan.length
+    ? `<p class="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Fewest transfers to settle everything</p>` + L.plan.map((p, i) => `
+      <div class="flex items-center justify-between gap-2 text-sm py-2 border-t border-slate-100 dark:border-slate-800">
+        <span class="min-w-0 truncate"><span class="font-semibold">${esc(founderName(p.from))}</span> pays <span class="font-semibold">${esc(founderName(p.to))}</span></span>
+        <span class="flex items-center gap-2 shrink-0"><span class="tabular-nums font-bold">${fmtMoney(p.amount)}</span>${caps.readOnly ? '' : `<button type="button" class="btn btn-secondary !px-2 !py-1 text-xs" data-plan="${i}">Record</button>`}</span>
+      </div>`).join('')
+    : (L.relations.length ? `<p class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">${icon('check', 'h-3.5 w-3.5')}Everyone is square. Nothing left to settle.</p>` : '');
+  const log = state.repayments.slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  $('#rp-log-toggle').innerHTML = `${icon('chevron', 'h-3.5 w-3.5 transition-transform ' + (ui.showLog ? 'rotate-180' : ''))}${ui.showLog ? 'Hide' : 'Show'} repayment log (${log.length})`;
+  $('#rp-log-wrap').classList.toggle('hidden', !ui.showLog);
+  $('#rp-log').innerHTML = log.length ? log.map(r => `
+    <div class="flex items-center justify-between gap-2 py-2 text-sm border-t border-slate-100 dark:border-slate-800">
+      <div class="min-w-0"><div class="truncate"><span class="font-semibold">${esc(founderName(r.fromId))}</span> paid <span class="font-semibold">${esc(founderName(r.toId))}</span>${r.note ? `<span class="text-slate-500">, ${esc(r.note)}</span>` : ''}</div><div class="text-[11px] text-slate-500">${fmtDate(r.date)}</div></div>
+      <div class="flex items-center gap-1 shrink-0"><span class="tabular-nums font-bold">${fmtMoney(r.amount)}</span>${caps.readOnly ? '' : `<button type="button" class="btn-icon !h-7 !w-7 hover:!text-rose-600" data-del-repay="${esc(r.id)}" aria-label="Delete repayment">${icon('trash', 'h-3.5 w-3.5')}</button>`}</div>
+    </div>`).join('') : `<p class="text-sm text-slate-500 py-2">No repayments recorded yet.</p>`;
+}
+function founderOptions(selected) { return state.founders.map(f => `<option value="${esc(f.id)}" ${f.id === selected ? 'selected' : ''}>${esc(f.name)}</option>`).join(''); }
+function renderFounderInputs() {
+  const keep = (sel, fallback) => { const v = $(sel).value; return state.founders.some(f => f.id === v) ? v : fallback; };
+  $('#f-payer').innerHTML = founderOptions(keep('#f-payer', state.primaryId));
+  $('#r-from').innerHTML = founderOptions(keep('#r-from', (state.founders[1] || state.founders[0] || {}).id));
+  $('#r-to').innerHTML = founderOptions(keep('#r-to', state.primaryId));
+  renderSplitRows(null);
+}
+function renderFooter() {
+  const main = ['USD', 'EUR', 'GBP', 'AED', 'JPY'];
+  $('#footer-rates').textContent = `Rates on file (${String(state.ratesSource).toLowerCase()}): ` + main.map(c => `1 ${c} = ${fmtRate(state.rates[c])} SAR`).join(', ') + '. Change them in Settings.';
+  $('#footer-storage').textContent = caps.mode === 'cloud'
+    ? 'This ledger is stored with the artifact and shared with everyone the owner gives access to. Changes appear for all of them within moments.'
+    : 'This copy is saved in this browser only. Export a backup before clearing site data or switching devices.';
+}
+
+/* ----- Transaction history ----- */
+function filteredExpenses() {
+  const q = ui.search.trim().toLowerCase();
+  const list = state.expenses.filter(e => {
+    if (ui.cats.size && !ui.cats.has(e.category)) return false;
+    if (ui.payers.size && !ui.payers.has(e.payerId)) return false;
+    if (q) { const hay = [e.description, e.category, founderName(e.payerId), e.currency, e.notes, e.date, fmtDate(e.date)].join(' ').toLowerCase(); if (!hay.includes(q)) return false; }
+    return true;
+  });
+  const byDate = (a, b) => String(a.date).localeCompare(String(b.date)) || String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
+  list.sort((a, b) => ui.sort === 'date-asc' ? byDate(a, b)
+    : ui.sort === 'amt-desc' ? totalsOf(b).totalSAR - totalsOf(a).totalSAR
+    : ui.sort === 'amt-asc' ? totalsOf(a).totalSAR - totalsOf(b).totalSAR
+    : byDate(b, a));
+  return list;
+}
+function splitLabel(e) {
+  const m = e.split && e.split.mode;
+  if (m === 'payer') return 'Not shared';
+  if (m === 'custom') { const n = Object.keys(e.split.shares || {}).length; return `Custom split between ${n}`; }
+  const n = (e.split && e.split.participants && e.split.participants.length) || state.founders.length;
+  return `Split equally between ${n}`;
+}
+function renderFilters() {
+  $('#tx-cats').innerHTML = CATEGORIES.map(c => `<button type="button" class="chip ${ui.cats.has(c.id) ? 'chip-on' : ''}" data-cat="${esc(c.id)}" aria-pressed="${ui.cats.has(c.id)}">${icon(c.icon, 'h-3 w-3')}${esc(c.id)}</button>`).join('');
+  $('#tx-payers').innerHTML = state.founders.map(f => `<button type="button" class="chip ${ui.payers.has(f.id) ? 'chip-on' : ''}" data-payer="${esc(f.id)}" aria-pressed="${ui.payers.has(f.id)}"><span class="h-2 w-2 rounded-full" style="background:${esc(f.color)}"></span>${esc(f.name)}</button>`).join('');
+  $('#tx-clear').classList.toggle('hidden', !(ui.cats.size || ui.payers.size || ui.search));
+}
+function renderBulk() {
+  const n = ui.selected.size, bar = $('#tx-bulk');
+  bar.classList.toggle('hidden', !n);
+  if (n) bar.innerHTML = `<span class="text-sm font-semibold">${n} selected</span>
+    <div class="flex gap-2">
+      <button type="button" class="btn !py-1.5 text-xs bg-white/15 hover:bg-white/25 dark:bg-slate-900/10 dark:hover:bg-slate-900/20" data-bulk="csv">${icon('download', 'h-3.5 w-3.5')}Export CSV</button>
+      ${caps.readOnly ? '' : `<button type="button" class="btn btn-danger !py-1.5 text-xs" data-bulk="delete">${icon('trash', 'h-3.5 w-3.5')}Delete</button>`}
+      <button type="button" class="btn !py-1.5 text-xs bg-white/15 hover:bg-white/25 dark:bg-slate-900/10 dark:hover:bg-slate-900/20" data-bulk="clear">Clear</button>
+    </div>`;
+}
+function renderTable() {
+  const list = filteredExpenses(), all = state.expenses.length;
+  const sumSAR = list.reduce((s, e) => s + totalsOf(e).totalSAR, 0);
+  $('#tx-summary').textContent = all
+    ? (list.length === all ? `${all} expense${all === 1 ? '' : 's'} totalling ${fmtMoney(sumSAR)}` : `Showing ${list.length} of ${all} expenses, ${fmtMoney(sumSAR)} in view`)
+    : (runtime.ready ? 'No expenses logged yet' : 'Loading the ledger');
+  const body = $('#tx-body'), cards = $('#tx-cards'), empty = $('#tx-empty');
+  const actions = id => caps.readOnly ? '' : `<button type="button" class="btn-icon" data-edit="${esc(id)}" aria-label="Edit">${icon('pencil', 'h-4 w-4')}</button><button type="button" class="btn-icon hover:!text-rose-600" data-del="${esc(id)}" aria-label="Delete">${icon('trash', 'h-4 w-4')}</button>`;
+
+  if (!list.length) {
+    body.innerHTML = ''; cards.innerHTML = ''; empty.classList.remove('hidden');
+    empty.innerHTML = !runtime.ready ? `<p class="font-semibold text-slate-700 dark:text-slate-200">Opening the ledger</p>`
+      : all ? `<p class="font-semibold text-slate-700 dark:text-slate-200">No matching transactions</p><p class="text-xs mt-1">Try another search term or clear the filters.</p>`
+      : `<p class="font-semibold text-slate-700 dark:text-slate-200">Your ledger is empty</p><p class="text-xs mt-1">${caps.readOnly ? 'Nothing has been logged yet.' : 'Log the first expense with the form above. Everyone with access will see it.'}</p>`;
+    $('#tx-sel-all').checked = false; renderBulk(); return;
+  }
+  empty.classList.add('hidden');
+  body.innerHTML = list.map(e => {
+    const t = totalsOf(e), f = founderById(e.payerId), sel = ui.selected.has(e.id);
+    return `<tr class="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 ${sel ? 'bg-brand-50/50 dark:bg-brand-500/5' : ''}">
+      <td class="td !pr-0"><input type="checkbox" class="row-sel h-4 w-4 rounded border-slate-300 accent-brand-600" data-sel="${esc(e.id)}" ${sel ? 'checked' : ''} aria-label="Select"></td>
+      <td class="td whitespace-nowrap text-xs text-slate-500 tabular-nums">${fmtDate(e.date)}</td>
+      <td class="td"><div class="font-semibold text-slate-900 dark:text-white max-w-[280px] truncate" title="${esc(e.description)}">${esc(e.description)}</div><div class="text-[11px] text-slate-500 truncate max-w-[280px]">${splitLabel(e)}${e.notes ? `, ${esc(e.notes)}` : ''}</div></td>
+      <td class="td">${catBadge(e.category)}</td>
+      <td class="td"><div class="flex items-center gap-2">${avatar(f, 'h-6 w-6 text-[9px]')}<span class="truncate max-w-[140px]">${esc(founderName(e.payerId))}</span></div></td>
+      <td class="td text-right tabular-nums whitespace-nowrap"><div>${fmtMoney(t.total, e.currency)}</div>${e.currency !== BASE ? `<div class="text-[11px] text-slate-500">at ${fmtRate(t.rate)}</div>` : ''}</td>
+      <td class="td text-right tabular-nums font-bold whitespace-nowrap">${fmtMoney(t.totalSAR)}</td>
+      <td class="td needs-write"><div class="flex items-center justify-end gap-1">${actions(e.id)}</div></td>
+    </tr>`;
+  }).join('');
+  cards.innerHTML = list.map(e => {
+    const t = totalsOf(e), f = founderById(e.payerId), sel = ui.selected.has(e.id);
+    return `<div class="p-4 ${sel ? 'bg-brand-50/50 dark:bg-brand-500/5' : ''}">
+      <div class="flex items-start gap-3">
+        <input type="checkbox" class="row-sel mt-1 h-4 w-4 rounded border-slate-300 accent-brand-600" data-sel="${esc(e.id)}" ${sel ? 'checked' : ''} aria-label="Select">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-start justify-between gap-2">
+            <div class="font-semibold truncate">${esc(e.description)}</div>
+            <div class="text-right shrink-0"><div class="font-bold tabular-nums">${fmtMoney(t.totalSAR)}</div>${e.currency !== BASE ? `<div class="text-[11px] text-slate-500 tabular-nums">${fmtMoney(t.total, e.currency)}</div>` : ''}</div>
+          </div>
+          <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-[11px] text-slate-500">${catBadge(e.category)}<span class="flex items-center gap-1">${avatar(f, 'h-4 w-4 text-[8px]')}${esc(founderName(e.payerId))}</span><span class="tabular-nums">${fmtDate(e.date)}</span></div>
+          <div class="flex items-center justify-between mt-1.5"><span class="text-[11px] text-slate-500 truncate">${splitLabel(e)}${e.notes ? `, ${esc(e.notes)}` : ''}</span><div class="flex gap-1 shrink-0 needs-write">${actions(e.id)}</div></div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  $('#tx-sel-all').checked = list.every(e => ui.selected.has(e.id));
+  renderBulk();
+}
+
+/* =========================================================
+   7. EXPENSE FORM
+   ========================================================= */
+function populateStaticSelects() {
+  $('#f-cat').innerHTML = CATEGORIES.map(c => `<option value="${esc(c.id)}">${esc(c.id)}</option>`).join('');
+  $('#f-cur').innerHTML = CURRENCIES.map(([code, name]) => `<option value="${code}">${code} (${esc(name)})</option>`).join('');
+}
+function readSplit() {
+  const checked = $('input[name="split"]:checked');
+  const mode = checked ? checked.value : 'equal';
+  const payerId = $('#f-payer').value;
+  if (mode === 'payer') return { mode, participants: [payerId] };
+  if (mode === 'custom') {
+    const shares = {};
+    $$('#split-custom-rows [data-fid]').forEach(row => {
+      const on = $('.split-on', row).checked, pct = num($('.split-pct', row).value);
+      if (on && pct > 0) shares[row.dataset.fid] = pct;
+    });
+    return { mode, shares };
+  }
+  return { mode: 'equal', participants: state.founders.map(f => f.id) };
+}
+function readForm() {
+  return {
+    date: $('#f-date').value || nowLocal(),
+    description: $('#f-desc').value.trim(),
+    category: $('#f-cat').value,
+    payerId: $('#f-payer').value || state.primaryId,
+    currency: $('#f-cur').value || BASE,
+    rate: $('#f-cur').value === BASE ? 1 : num($('#f-rate').value),
+    base: num($('#f-base').value),
+    tax:  { on: $('#f-tax-on').checked,  mode: $('#f-tax-mode').value,  value: num($('#f-tax-val').value) },
+    duty: { on: $('#f-duty-on').checked, mode: $('#f-duty-mode').value, value: num($('#f-duty-val').value) },
+    ship: { on: $('#f-ship-on').checked, mode: $('#f-ship-mode').value, value: num($('#f-ship-val').value) },
+    split: readSplit(),
+    notes: $('#f-notes').value.trim()
+  };
+}
+function renderSplitRows(preset, reset = false) {
+  const wrap = $('#split-custom-rows');
+  const keep = {};
+  if (!reset) $$('[data-fid]', wrap).forEach(row => { keep[row.dataset.fid] = { on: $('.split-on', row).checked, pct: $('.split-pct', row).value }; });
+  const eq = fmtPct(100 / Math.max(1, state.founders.length));
+  wrap.innerHTML = state.founders.map(f => {
+    let on = true, pct = eq;
+    if (preset) { on = num(preset[f.id]) > 0; pct = on ? fmtPct(preset[f.id]) : '0'; }
+    else if (keep[f.id]) { on = keep[f.id].on; pct = keep[f.id].pct; }
+    return `<div class="flex items-center gap-2" data-fid="${esc(f.id)}">
+      <input type="checkbox" class="split-on h-4 w-4 rounded border-slate-300 accent-brand-600" ${on ? 'checked' : ''} aria-label="Include ${esc(f.name)}">
+      ${avatar(f, 'h-6 w-6 text-[9px]')}<span class="flex-1 text-sm truncate">${esc(f.name)}</span>
+      <div class="relative w-24"><input type="number" min="0" max="100" step="0.01" inputmode="decimal" class="input split-pct !py-1.5 pr-7 text-right tabular-nums" value="${esc(pct)}" ${on ? '' : 'disabled'} aria-label="Share for ${esc(f.name)}"><span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">%</span></div>
+    </div>`;
+  }).join('');
+  updateSplitSum();
+}
+function equalize() {
+  const rows = $$('#split-custom-rows [data-fid]').filter(r => $('.split-on', r).checked);
+  const n = rows.length; if (!n) { updateSplitSum(); return; }
+  const each = Math.round(100 / n * 100) / 100;
+  rows.forEach((r, i) => { $('.split-pct', r).value = fmtPct(i === n - 1 ? 100 - each * (n - 1) : each); });
+  updateSplitSum();
+}
+function updateSplitSum() {
+  const sum = $$('#split-custom-rows [data-fid]').reduce((s, row) => s + ($('.split-on', row).checked ? num($('.split-pct', row).value) : 0), 0);
+  const el = $('#split-sum'); const ok = Math.abs(sum - 100) < 0.01;
+  el.textContent = `Total ${fmtPct(sum)}%`;
+  el.className = 'text-[11px] font-semibold ' + (ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400');
+}
+function syncRate(fromSettings) {
+  const cur = $('#f-cur').value, rate = $('#f-rate');
+  if (cur === BASE) { rate.value = 1; rate.disabled = true; }
+  else { rate.disabled = false; if (fromSettings || !rate.value) rate.value = state.rates[cur] ?? ''; }
+  $('#f-base-cur').textContent = cur;
+  updateRateHint();
+}
+function updateRateHint() {
+  const cur = $('#f-cur').value;
+  $('#f-rate-hint').textContent = cur === BASE ? 'Base currency, no conversion needed' : `1 ${cur} = ${fmtRate(num($('#f-rate').value))} SAR, editable for this entry`;
+}
+function syncFormUI() {
+  ['tax', 'duty', 'ship'].forEach(k => {
+    const on = $(`#f-${k}-on`).checked;
+    [$(`#f-${k}-mode`), $(`#f-${k}-val`)].forEach(el => { el.disabled = !on; });
+  });
+  const checked = $('input[name="split"]:checked'); const mode = checked ? checked.value : 'equal';
+  $$('#split-modes label').forEach(l => l.classList.toggle('split-on', $('input', l).checked));
+  $('#split-custom').classList.toggle('hidden', mode !== 'custom');
+  $('#split-equalize').classList.toggle('hidden', mode !== 'custom');
+  renderPreview();
+}
+function renderPreview() {
+  if (!state.founders.length) return;
+  const e = readForm(), t = totalsOf(e), cur = e.currency;
+  const shares = sharesOf(e);
+  const modLabel = (label, m) => `${label}${m.mode === 'percent' ? ` (${fmtPct(m.value)}%)` : ''}`;
+  const line = (label, v) => `<div class="flex justify-between py-0.5"><span class="text-slate-600 dark:text-slate-300">${label}</span><span class="tabular-nums">${fmtMoney(v, cur)}</span></div>`;
+  $('#preview').innerHTML = `
+    ${line('Base price', t.base)}
+    ${e.tax.on ? line(modLabel('Tax / VAT', e.tax), t.tax) : ''}
+    ${e.duty.on ? line(modLabel('Import duties', e.duty), t.duty) : ''}
+    ${e.ship.on ? line(modLabel('Shipping', e.ship), t.ship) : ''}
+    <div class="flex justify-between items-end border-t border-slate-200 dark:border-slate-800 mt-2 pt-2">
+      <span class="font-bold">Grand total</span>
+      <div class="text-right"><div class="font-extrabold tabular-nums text-base">${fmtMoney(t.total, cur)}</div>${cur !== BASE ? `<div class="text-xs text-slate-500 tabular-nums">= ${fmtMoney(t.totalSAR)} at ${fmtRate(t.rate)}</div>` : ''}</div>
+    </div>
+    <div class="mt-2 pt-2 border-t border-slate-200 dark:border-slate-800 text-xs">
+      <div class="text-slate-500 mb-1">Each person's share in SAR</div>
+      ${Object.entries(shares).map(([id, amt]) => `<div class="flex justify-between py-0.5"><span>${esc(founderName(id))}${id === e.payerId ? ' <span class="text-slate-400">(paid)</span>' : ''}</span><span class="tabular-nums">${fmtNum(amt)}</span></div>`).join('')}
+    </div>`;
+}
+function fillForm(e) {
+  $('#f-date').value = e.date || nowLocal(); $('#f-desc').value = e.description || '';
+  $('#f-cat').value = e.category; $('#f-payer').value = e.payerId; $('#f-cur').value = e.currency || BASE;
+  $('#f-rate').value = e.rate ?? ''; $('#f-base').value = e.base ?? '';
+  ['tax', 'duty', 'ship'].forEach(k => { const m = e[k] || {}; $(`#f-${k}-on`).checked = !!m.on; $(`#f-${k}-mode`).value = m.mode || 'amount'; $(`#f-${k}-val`).value = m.value ?? ''; });
+  const mode = (e.split && e.split.mode) || 'equal';
+  const radio = $(`input[name="split"][value="${mode}"]`); if (radio) radio.checked = true;
+  renderSplitRows(mode === 'custom' ? (e.split.shares || {}) : null, mode !== 'custom');
+  $('#f-notes').value = e.notes || '';
+  syncRate(false); syncFormUI();
+}
+function resetForm(full) {
+  ui.editingId = null;
+  $('#f-date').value = nowLocal(); $('#f-desc').value = ''; $('#f-base').value = ''; $('#f-notes').value = '';
+  if (full) { $('#f-cat').value = CATEGORIES[0].id; $('#f-cur').value = BASE; $('#f-payer').value = state.primaryId; }
+  $('#f-tax-on').checked = true;   $('#f-tax-mode').value = 'percent'; $('#f-tax-val').value = state.defaults.taxPct;
+  $('#f-duty-on').checked = false; $('#f-duty-mode').value = 'percent'; $('#f-duty-val').value = state.defaults.dutyPct;
+  $('#f-ship-on').checked = false; $('#f-ship-mode').value = 'amount'; $('#f-ship-val').value = '';
+  $('input[name="split"][value="equal"]').checked = true; renderSplitRows(null, true);
+  syncRate(true); syncFormUI();
+  $('#form-title').textContent = 'Log an expense';
+  $('#form-submit').innerHTML = `${icon('plus')}Add expense`;
+  $('#form-cancel').classList.add('hidden');
+  $('#form-card').classList.remove('ring-2', 'ring-brand-500/40');
+}
+function fail(sel, msg) {
+  toast(msg, 'error');
+  const el = $(sel); if (!el) return;
+  el.focus(); el.classList.add('ring-2', 'ring-rose-500/50'); setTimeout(() => el.classList.remove('ring-2', 'ring-rose-500/50'), 1600);
+}
+async function onSubmit(ev) {
+  ev.preventDefault();
+  if (!runtime.ready || caps.readOnly) return;
+  const e = readForm(), t = totalsOf(e);
+  if (!e.description) return fail('#f-desc', 'Add a short description before saving.');
+  if (!(t.total > 0)) return fail('#f-base', 'Enter a base price, or at least one cost component, above zero.');
+  if (e.currency !== BASE && !(e.rate > 0)) return fail('#f-rate', 'Enter the exchange rate to SAR for this entry.');
+  if (e.split.mode === 'custom' && !Object.keys(e.split.shares).length) return toast('Pick at least one co-founder with a share above 0%.', 'error');
+  e.total = round2(t.total); e.totalSAR = round2(t.totalSAR);
+  const now = new Date().toISOString();
+  const btn = $('#form-submit'); btn.disabled = true;
+  let ok;
+  if (ui.editingId) {
+    const old = state.expenses.find(x => x.id === ui.editingId) || {};
+    ok = await store.putExpense(Object.assign({}, old, e, { id: ui.editingId, updatedAt: now, updatedBy: caps.viewerId || null }));
+    if (ok) toast('Expense updated.', 'success');
+  } else {
+    ok = await store.putExpense(Object.assign({ id: uid(), createdAt: now, createdBy: caps.viewerId || null, updatedAt: now }, e));
+    if (ok) toast(`Added ${fmtMoney(t.totalSAR)} under ${e.category}.`, 'success');
+  }
+  btn.disabled = false;
+  if (ok) resetForm(false);
+}
+function startEdit(id) {
+  const e = state.expenses.find(x => x.id === id); if (!e || caps.readOnly) return;
+  ui.editingId = id; fillForm(e);
+  $('#form-title').textContent = 'Edit expense';
+  $('#form-submit').innerHTML = `${icon('check')}Save changes`;
+  $('#form-cancel').classList.remove('hidden');
+  $('#form-card').classList.add('ring-2', 'ring-brand-500/40');
+  if ($('#form-card').scrollIntoView) $('#form-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setTimeout(() => $('#f-desc').focus(), 350);
+}
+async function deleteExpenses(ids) {
+  const removed = state.expenses.filter(e => ids.includes(e.id));
+  if (!removed.length) return;
+  if (ui.editingId && ids.includes(ui.editingId)) resetForm(false);
+  ids.forEach(id => ui.selected.delete(id));
+  const ok = await store.removeExpenses(removed.map(e => e.id));
+  if (!ok) return;
+  lastDeleted = removed;
+  toast(`Deleted ${removed.length} expense${removed.length === 1 ? '' : 's'}.`, 'info', { action: { label: 'Undo', fn: undoDelete } });
+}
+async function undoDelete() {
+  if (!lastDeleted) return;
+  const items = lastDeleted; lastDeleted = null;
+  let ok = true; for (const e of items) ok = (await store.putExpense(e)) && ok;
+  if (ok) toast('Restored.', 'success');
+}
+async function onBulk(kind) {
+  const ids = Array.from(ui.selected); if (!ids.length) return;
+  if (kind === 'clear') { ui.selected.clear(); renderTable(); }
+  else if (kind === 'csv') exportExpensesCSV(state.expenses.filter(e => ui.selected.has(e.id)));
+  else if (kind === 'delete' && !caps.readOnly && await ask(`Delete ${ids.length} selected expense${ids.length === 1 ? '' : 's'}${caps.mode === 'cloud' ? ' for everyone' : ''}?`, { ok: 'Delete', danger: true })) deleteExpenses(ids);
+}
+
+/* =========================================================
+   8. REPAYMENTS
+   ========================================================= */
+async function onRepaySubmit(ev) {
+  ev.preventDefault();
+  if (!runtime.ready || caps.readOnly) return;
+  const fromId = $('#r-from').value, toId = $('#r-to').value;
+  const amount = round2(num($('#r-amount').value)), date = $('#r-date').value || nowLocal(), note = $('#r-note').value.trim();
+  if (fromId === toId) return toast('Choose two different people for a repayment.', 'error');
+  if (!(amount > 0)) return fail('#r-amount', 'Enter the repayment amount in SAR.');
+  const ok = await store.putRepayment({ id: uid(), fromId, toId, amount, date, note, createdAt: new Date().toISOString(), createdBy: caps.viewerId || null });
+  if (!ok) return;
+  $('#r-amount').value = ''; $('#r-note').value = ''; $('#r-date').value = nowLocal();
+  toast(`Recorded ${fmtMoney(amount)} from ${founderName(fromId)} to ${founderName(toId)}.`, 'success');
+}
+async function deleteRepayment(id) {
+  const item = state.repayments.find(r => r.id === id); if (!item || caps.readOnly) return;
+  const ok = await store.removeRepayment(id); if (!ok) return;
+  toast('Repayment removed.', 'info', { action: { label: 'Undo', fn: () => store.putRepayment(item) } });
+}
+
+/* =========================================================
+   9. EXPORTS: CSV, JSON backup, printable statement
+   ========================================================= */
+const csvCell = v => { const s = String(v ?? ''); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+const toCSV = rows => rows.map(r => r.map(csvCell).join(',')).join('\r\n');
+
+async function exportExpensesCSV(list) {
+  if (!list.length) return toast('There are no expenses to export yet.', 'warn');
+  const rows = [['ID', 'Date', 'Description', 'Category', 'Paid by', 'Currency', 'Rate (SAR per 1 unit)', 'Base price', 'Tax/VAT', 'Import duties', 'Shipping', 'Total (original)', 'Total (SAR)', 'Split', 'Shares (SAR)', 'Notes']];
+  list.slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).forEach(e => {
+    const t = totalsOf(e), sh = sharesOf(e);
+    rows.push([e.id, String(e.date).replace('T', ' '), e.description, e.category, founderName(e.payerId), e.currency, fmtRate(t.rate), round2(t.base), round2(t.tax), round2(t.duty), round2(t.ship), round2(t.total), round2(t.totalSAR), splitLabel(e), Object.entries(sh).map(([id, a]) => `${founderName(id)}: ${round2(a)}`).join('; '), e.notes || '']);
+  });
+  rows.push([]);
+  rows.push(['Generated', new Date().toISOString(), state.company, '', '', '', '', '', '', '', '', 'Total SAR', round2(list.reduce((s, e) => s + totalsOf(e).totalSAR, 0))]);
+  if (await saveFile(`${slug(state.company)}_expenses_${fileStamp()}.csv`, '\ufeff' + toCSV(rows))) toast(`Exported ${list.length} expense${list.length === 1 ? '' : 's'} as CSV.`, 'success');
+}
+async function exportRepaymentsCSV() {
+  if (!state.repayments.length) return toast('There are no repayments to export yet.', 'warn');
+  const rows = [['ID', 'Date', 'From', 'To', 'Amount (SAR)', 'Note']];
+  state.repayments.slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).forEach(r => rows.push([r.id, String(r.date).replace('T', ' '), founderName(r.fromId), founderName(r.toId), round2(r.amount), r.note || '']));
+  if (await saveFile(`${slug(state.company)}_repayments_${fileStamp()}.csv`, '\ufeff' + toCSV(rows))) toast('Exported repayments as CSV.', 'success');
+}
+const backupJSON = () => JSON.stringify(Object.assign({ version: 2, exportedAt: new Date().toISOString() }, settingsBody(), { expenses: state.expenses, repayments: state.repayments }), null, 2);
+async function runExport(kind) {
+  if (!runtime.ready) return;
+  if (kind === 'csv') return exportExpensesCSV(state.expenses);
+  if (kind === 'csv-repay') return exportRepaymentsCSV();
+  if (kind === 'json') { if (await saveFile(`${slug(state.company)}_ledger-backup_${fileStamp()}.json`, backupJSON())) toast('Backup downloaded.', 'success'); return; }
+  if (kind === 'html') { if (await saveFile(`${slug(state.company)}_statement_${fileStamp()}.html`, statementDocument())) toast('Statement downloaded as an HTML file.', 'success'); return; }
+  if (kind === 'pdf') return printStatement();
+}
+
+const STATEMENT_CSS = `
+.st{font-family:Manrope,Inter,Arial,Helvetica,sans-serif;color:#111;font-size:10.5pt;line-height:1.45;max-width:1040px;margin:0 auto}
+.st h1{font-size:18pt;margin:0;font-weight:800}.st .st-sub{font-size:11pt;color:#444;margin-top:2pt}
+.st h2{font-size:12pt;margin:18pt 0 6pt;padding-bottom:3pt;border-bottom:1px solid #999;page-break-after:avoid;break-after:avoid}
+.st-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16pt;border-bottom:2px solid #111;padding-bottom:8pt}
+.st-meta{text-align:right;font-size:9pt;color:#444;line-height:1.55}
+.st table{width:100%;border-collapse:collapse;font-size:9.5pt;margin-top:4pt}
+.st th,.st td{border:1px solid #bbb;padding:4pt 6pt;text-align:left;vertical-align:top}
+.st th{background:#f0f0f0;font-weight:700}.st tr{page-break-inside:avoid;break-inside:avoid}
+.st .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.st table.kv th{width:22%}.st table.kv td{width:28%}
+.st tr.total th{background:#e4e4e4}.st .muted{color:#555;font-size:9pt;margin:4pt 0}
+.st small{font-size:8pt;color:#555}
+.st table.register{font-size:8.5pt}.st table.register th,.st table.register td{padding:3pt 4pt}
+.st table.rates td{border:none;font-size:9pt;padding:2pt 6pt}
+.st-sign{display:grid;grid-template-columns:repeat(auto-fit,minmax(170pt,1fr));gap:16pt;margin-top:28pt;page-break-inside:avoid}
+.st-sign div{border-top:1px solid #111;padding-top:4pt;font-size:9pt;line-height:1.9}
+.st-foot{margin-top:16pt;font-size:8.5pt;color:#555}
+`;
+function buildStatement() {
+  const L = computeLedger(), now = new Date();
+  const exps = state.expenses.slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const reps = state.repayments.slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const period = exps.length ? `${fmtDate(exps[0].date, false)} to ${fmtDate(exps[exps.length - 1].date, false)}` : 'No entries';
+  const n = v => `<td class="num">${fmtNum(v)}</td>`;
+  const active = CATEGORIES.filter(c => L.byCat[c.id] > EPS);
+  const repaidPct = L.totalOwed > EPS ? Math.min(100, L.totalRepaid / L.totalOwed * 100) : 0;
+  let i = 0;
+  return `<div class="st">
+    <div class="st-head">
+      <div><h1>${esc(state.company)}</h1><div class="st-sub">Co-founder expense statement</div></div>
+      <div class="st-meta"><strong>Statement date:</strong> ${now.toLocaleString('en-GB', { dateStyle: 'long', timeStyle: 'short' })}<br><strong>Period covered:</strong> ${period}<br><strong>Base currency:</strong> SAR, ${exps.length} expenses, ${reps.length} repayments<br><strong>Reference:</strong> ST-${fileStamp()}</div>
+    </div>
+    <h2>1. Summary</h2>
+    <table class="kv">
+      <tr><th>Total capital invested (SAR)</th>${n(L.totalSAR)}<th>Outstanding to settle (SAR)</th>${n(L.outstanding)}</tr>
+      <tr><th>Gross inter-founder debt (SAR)</th>${n(L.totalOwed)}<th>Repaid to date (SAR)</th><td class="num">${fmtNum(L.totalRepaid)} (${fmtPct(repaidPct)}%)</td></tr>
+      <tr><th>Co-founders</th><td>${state.founders.length}</td><th>Active categories</th><td>${active.length} of ${CATEGORIES.length}</td></tr>
+    </table>
+    <h2>2. Co-founder positions (SAR)</h2>
+    <table><thead><tr><th>Co-founder</th><th class="num">Fronted</th><th class="num">Share of costs</th><th class="num">Repaid out</th><th class="num">Received</th><th class="num">Net position</th><th>Status</th></tr></thead><tbody>
+      ${state.founders.map(f => { const out = L.ids.reduce((s, id) => s + L.repaid[f.id][id], 0), inn = L.ids.reduce((s, id) => s + L.repaid[id][f.id], 0), net = L.net[f.id]; return `<tr><td>${esc(f.name)}${f.id === state.primaryId ? ' <em>(primary financier)</em>' : ''}</td>${n(L.paid[f.id])}${n(L.share[f.id])}${n(out)}${n(inn)}<td class="num">${net >= 0 ? '+' : '−'}${fmtNum(Math.abs(net))}</td><td>${Math.abs(net) < EPS ? 'Settled' : net > 0 ? 'Is owed' : 'Owes'}</td></tr>`; }).join('')}
+    </tbody></table>
+    <h2>3. Outstanding balances</h2>
+    ${L.relations.length ? `<table><thead><tr><th>Debtor</th><th>Creditor</th><th class="num">Gross owed</th><th class="num">Repaid</th><th class="num">Remaining</th><th class="num">Progress</th></tr></thead><tbody>${L.relations.map(r => `<tr><td>${esc(founderName(r.from))}</td><td>${esc(founderName(r.to))}</td>${n(r.gross)}${n(r.repaid)}${n(r.remaining)}<td class="num">${fmtPct(r.gross > EPS ? Math.min(100, r.repaid / r.gross * 100) : 0)}%</td></tr>`).join('')}</tbody></table>` : '<p class="muted">No inter-founder debts recorded.</p>'}
+    <h2>4. Suggested settlement</h2>
+    ${L.plan.length ? `<table><thead><tr><th>From</th><th>To</th><th class="num">Amount (SAR)</th></tr></thead><tbody>${L.plan.map(p => `<tr><td>${esc(founderName(p.from))}</td><td>${esc(founderName(p.to))}</td>${n(p.amount)}</tr>`).join('')}</tbody></table><p class="muted">Minimum-transfer plan derived from net positions. Cross-debts between the same two people are netted.</p>` : '<p class="muted">All positions are settled.</p>'}
+    <h2>5. Spending by category</h2>
+    <table><thead><tr><th>Category</th><th class="num">Entries</th><th class="num">Total (SAR)</th><th class="num">Share</th></tr></thead><tbody>
+      ${CATEGORIES.map(c => { const cnt = exps.filter(e => e.category === c.id).length, v = L.byCat[c.id] || 0; return `<tr><td>${esc(c.id)}</td><td class="num">${cnt}</td>${n(v)}<td class="num">${fmtPct(L.totalSAR > EPS ? v / L.totalSAR * 100 : 0)}%</td></tr>`; }).join('')}
+      <tr class="total"><th>Total</th><th class="num">${exps.length}</th><th class="num">${fmtNum(L.totalSAR)}</th><th class="num">${L.totalSAR > EPS ? '100' : '0'}%</th></tr>
+    </tbody></table>
+    <h2>6. Expense register</h2>
+    ${exps.length ? `<table class="register"><thead><tr><th>#</th><th>Date</th><th>Description</th><th>Category</th><th>Paid by</th><th>Cur.</th><th class="num">Base</th><th class="num">Tax</th><th class="num">Duties</th><th class="num">Shipping</th><th class="num">Total</th><th class="num">Rate</th><th class="num">Total SAR</th><th>Borne by</th></tr></thead><tbody>
+      ${exps.map(e => { const t = totalsOf(e), sh = sharesOf(e); return `<tr><td>${++i}</td><td>${fmtDate(e.date)}</td><td>${esc(e.description)}${e.notes ? `<br><small>${esc(e.notes)}</small>` : ''}</td><td>${esc(e.category)}</td><td>${esc(founderName(e.payerId))}</td><td>${esc(e.currency)}</td>${n(t.base)}${n(t.tax)}${n(t.duty)}${n(t.ship)}${n(t.total)}<td class="num">${fmtRate(t.rate)}</td>${n(t.totalSAR)}<td><small>${Object.entries(sh).map(([id, a]) => `${esc(founderName(id))} ${fmtNum(a)}`).join('<br>')}</small></td></tr>`; }).join('')}
+      <tr class="total"><th colspan="12">Total (SAR)</th><th class="num">${fmtNum(L.totalSAR)}</th><th></th></tr>
+    </tbody></table>` : '<p class="muted">No expenses logged.</p>'}
+    <h2>7. Repayment log</h2>
+    ${reps.length ? `<table><thead><tr><th>Date</th><th>From</th><th>To</th><th class="num">Amount (SAR)</th><th>Note</th></tr></thead><tbody>${reps.map(r => `<tr><td>${fmtDate(r.date)}</td><td>${esc(founderName(r.fromId))}</td><td>${esc(founderName(r.toId))}</td>${n(r.amount)}<td>${esc(r.note || '')}</td></tr>`).join('')}</tbody></table>` : '<p class="muted">No repayments recorded.</p>'}
+    <h2>8. Exchange rates on file</h2>
+    <p class="muted">${esc(ratesMeta())}. Each expense was converted with the rate recorded at the time it was logged.</p>
+    <table class="rates"><tbody>${chunk(CURRENCIES.filter(([c]) => c !== BASE), 4).map(row => `<tr>${row.map(([c]) => `<td>1 ${c} = ${fmtRate(state.rates[c])} SAR</td>`).join('')}</tr>`).join('')}</tbody></table>
+    <div class="st-sign">${state.founders.map(f => `<div><strong>${esc(f.name)}</strong><br>Signature: ______________________<br>Date: ____________</div>`).join('')}</div>
+    <div class="st-foot">Prepared with Co-Founder Expense Ledger. Percent modifiers apply to the base price. Net position = amount fronted − share of costs + repayments made − repayments received.</div>
+  </div>`;
+}
+function statementDocument() {
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(state.company)} – Expense statement</title><style>body{margin:24px;background:#fff}@page{margin:12mm}${STATEMENT_CSS}</style></head><body>${buildStatement()}</body></html>`;
+}
+function printStatement() {
+  $('#statement').innerHTML = buildStatement();
+  const prevTitle = document.title;
+  document.title = `${state.company} – Expense statement ${fileStamp()}`;
+  const restore = () => { document.title = prevTitle; window.removeEventListener('afterprint', restore); };
+  window.addEventListener('afterprint', restore);
+  toast('Choose "Save as PDF" as the printer to export the statement.', 'info', { duration: 6000 });
+  setTimeout(() => { window.print(); setTimeout(restore, 3000); }, 80);
+}
+
+/* =========================================================
+   10. SETTINGS
+   ========================================================= */
+const ratesMeta = () => `${state.ratesSource}${state.ratesUpdatedAt ? ', updated ' + fmtDate(state.ratesUpdatedAt) : ', edit them to match your bank or card rate'}`;
+
+// Rebuild the settings panels. When `preserve` is set (live update while the modal is
+// open) the focused input keeps its value, focus and caret.
+function renderSettings(preserve = false) {
+  const active = document.activeElement;
+  const focus = preserve && active && $('#settings-modal').contains(active) ? {
+    id: active.id, cls: active.classList.contains('s-name') ? 's-name' : active.classList.contains('s-color') ? 's-color' : active.dataset.rate ? 'rate' : null,
+    fid: active.closest('[data-fid]') ? active.closest('[data-fid]').dataset.fid : null, rate: active.dataset.rate || null, value: active.value,
+    sel: typeof active.selectionStart === 'number' ? [active.selectionStart, active.selectionEnd] : null
+  } : null;
+
+  $('#s-company').value = state.company;
+  $('#s-founders').innerHTML = state.founders.map(f => `
+    <div class="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 p-2" data-fid="${esc(f.id)}">
+      <input type="color" class="s-color" value="${esc(f.color)}" aria-label="Colour for ${esc(f.name)}" title="Colour">
+      <input type="text" class="input s-name !py-1.5" value="${esc(f.name)}" placeholder="Name" maxlength="40" aria-label="Co-founder name">
+      <label class="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap cursor-pointer"><input type="radio" name="s-primary" class="s-primary h-3.5 w-3.5 accent-brand-600" ${f.id === state.primaryId ? 'checked' : ''}>Primary</label>
+      <button type="button" class="btn-icon s-remove hover:!text-rose-600" aria-label="Remove ${esc(f.name)}">${icon('trash', 'h-4 w-4')}</button>
+    </div>`).join('');
+  $('#s-rates-meta').textContent = ratesMeta();
+  $('#s-rates').innerHTML = CURRENCIES.filter(([c]) => c !== BASE).map(([code, name]) => `
+    <label class="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 px-3 py-2">
+      <span class="w-10 text-sm font-bold">${code}</span><span class="flex-1 text-xs text-slate-500 truncate">${esc(name)}</span>
+      <span class="text-xs text-slate-400 whitespace-nowrap">1 ${code} =</span>
+      <input type="number" min="0" step="0.0001" inputmode="decimal" class="input !w-24 !py-1 !px-2 text-right tabular-nums" data-rate="${code}" value="${esc(state.rates[code] ?? '')}" aria-label="SAR per ${code}">
+      <span class="text-xs text-slate-400">SAR</span>
+    </label>`).join('');
+  $('#s-tax-default').value = state.defaults.taxPct; $('#s-duty-default').value = state.defaults.dutyPct;
+  $('#s-storage-info').innerHTML = caps.mode === 'cloud'
+    ? `${icon('check', 'h-3.5 w-3.5 text-emerald-500 mt-0.5')}<span>Stored with this artifact and shared with everyone the owner gives access to. Download a backup before clearing data; restore it here on any device.</span>`
+    : runtime.storageOk
+      ? `${icon('check', 'h-3.5 w-3.5 text-emerald-500 mt-0.5')}<span>Saving automatically to this browser (${fmtNum(backupJSON().length / 1024, 1)} KB). Nothing leaves your device.</span>`
+      : `${icon('alert', 'h-3.5 w-3.5 text-amber-500 mt-0.5')}<span>Storage is blocked here, so changes are lost on reload. Download a backup before closing.</span>`;
+  $$('#settings-modal fieldset.s-editable').forEach(f => { f.disabled = caps.readOnly; });
+  $('#s-readonly-note').classList.toggle('hidden', !caps.readOnly);
+  showTab(ui.tab);
+
+  if (focus) {
+    let el = null;
+    if (focus.id) el = $('#' + focus.id);
+    else if (focus.fid && focus.cls) el = $(`#s-founders [data-fid="${focus.fid}"] .${focus.cls}`);
+    else if (focus.rate) el = $(`#s-rates [data-rate="${focus.rate}"]`);
+    if (el) { el.value = focus.value; el.focus(); if (focus.sel && typeof el.setSelectionRange === 'function') { try { el.setSelectionRange(focus.sel[0], focus.sel[1]); } catch (e) { /* type=number */ } } }
+  }
+}
+function showTab(tab) {
+  ui.tab = tab;
+  $$('#s-tabs [data-tab]').forEach(b => b.classList.toggle('s-tab-on', b.dataset.tab === tab));
+  $$('#settings-modal .s-panel').forEach(p => p.classList.toggle('hidden', p.dataset.panel !== tab));
+}
+function openSettings(tab) {
+  if (!runtime.ready) return;
+  if (tab) ui.tab = tab;
+  renderSettings();
+  const m = $('#settings-modal'); m.classList.remove('hidden'); m.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('overflow-hidden');
+}
+function closeSettings() {
+  const m = $('#settings-modal'); m.classList.add('hidden'); m.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('overflow-hidden');
+}
+function addFounder() {
+  const i = state.founders.length;
+  state.founders.push({ id: uid(), name: `Co-Founder ${i + 1}`, color: FOUNDER_COLORS[i % FOUNDER_COLORS.length] });
+  scheduleSettingsWrite(0); renderSettings(); renderAll();
+  const last = $$('#s-founders .s-name').pop(); if (last) { last.focus(); last.select(); }
+}
+async function removeFounder(id) {
+  if (state.founders.length <= 1) return toast('Keep at least one co-founder.', 'warn');
+  const refs = state.expenses.filter(e => e.payerId === id || (e.split && (((e.split.participants || []).includes(id)) || (e.split.shares && e.split.shares[id])))).length
+             + state.repayments.filter(r => r.fromId === id || r.toId === id).length;
+  if (refs) return toast(`${founderName(id)} appears in ${refs} entr${refs === 1 ? 'y' : 'ies'}. Reassign or delete those first.`, 'warn');
+  if (!(await ask(`Remove ${founderName(id)} from the team?`, { ok: 'Remove', danger: true }))) return;
+  state.founders = state.founders.filter(f => f.id !== id);
+  if (state.primaryId === id) state.primaryId = state.founders[0].id;
+  scheduleSettingsWrite(0); renderSettings(); renderAll();
+}
+function importJSON(file) {
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!data || !Array.isArray(data.expenses) || !Array.isArray(data.founders)) throw new Error('Not a ledger backup');
+      if (!(await ask(`Replace the current ledger with "${data.company || 'backup'}" (${data.expenses.length} expenses, ${(data.repayments || []).length} repayments)? ${caps.mode === 'cloud' ? 'This replaces it for everyone and cannot be undone.' : 'This cannot be undone.'}`, { ok: 'Replace', danger: true }))) return;
+      closeSettings(); toast('Restoring the backup', 'info');
+      await store.replaceAll(data);
+      resetForm(true); toast('Backup restored.', 'success');
+    } catch (e) { toast('That file is not a valid ledger backup.', 'error'); }
+  };
+  reader.readAsText(file);
+}
+
+/* =========================================================
+   11. THEME AND TOASTS
+   ========================================================= */
+function resolveDark() {
+  const pref = lsGet(THEME_KEY);
+  if (pref === 'dark') return true; if (pref === 'light') return false;
+  const attr = document.documentElement.getAttribute('data-theme');
+  if (attr === 'dark') return true; if (attr === 'light') return false;
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+function applyTheme(dark, persist = false) {
+  document.documentElement.classList.toggle('dark', dark);
+  if (persist) lsSet(THEME_KEY, dark ? 'dark' : 'light');
+  $('#theme-btn').innerHTML = icon(dark ? 'sun' : 'moon', 'h-[18px] w-[18px]');
+  $('#theme-btn').setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+}
+function setupTheme() {
+  applyTheme(resolveDark());
+  try { new MutationObserver(() => applyTheme(resolveDark())).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] }); } catch (e) { /* ignore */ }
+  try { window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme(resolveDark())); } catch (e) { /* ignore */ }
+}
+// Promise-based confirmation that works where window.confirm is blocked.
+function ask(message, { ok = 'Confirm', danger = false } = {}) {
+  return new Promise(resolve => {
+    const m = $('#confirm-modal'), okBtn = $('#confirm-ok'), cancelBtn = $('#confirm-cancel');
+    $('#confirm-text').textContent = message;
+    okBtn.textContent = ok; okBtn.className = 'btn ' + (danger ? 'btn-danger' : 'btn-primary');
+    m.classList.remove('hidden'); m.setAttribute('aria-hidden', 'false');
+    const done = v => { m.classList.add('hidden'); m.setAttribute('aria-hidden', 'true'); okBtn.removeEventListener('click', onOk); cancelBtn.removeEventListener('click', onCancel); m.removeEventListener('click', onBackdrop); document.removeEventListener('keydown', onKey); resolve(v); };
+    const onOk = () => done(true), onCancel = () => done(false);
+    const onBackdrop = ev => { if (ev.target.hasAttribute('data-close-confirm')) done(false); };
+    const onKey = ev => { if (ev.key === 'Escape') done(false); };
+    okBtn.addEventListener('click', onOk); cancelBtn.addEventListener('click', onCancel); m.addEventListener('click', onBackdrop); document.addEventListener('keydown', onKey);
+    setTimeout(() => okBtn.focus(), 30);
+  });
+}
+function toast(msg, type = 'info', opts = {}) {
+  const tone = { info: 'text-brand-600 dark:text-brand-400', success: 'text-emerald-500', error: 'text-rose-500', warn: 'text-amber-500' }[type] || '';
+  const ic = { info: 'info', success: 'check', error: 'alert', warn: 'alert' }[type] || 'info';
+  const el = document.createElement('div');
+  el.className = 'card px-3.5 py-3 flex items-start gap-3 text-sm shadow-lg toast-in';
+  el.innerHTML = `<span class="mt-0.5 ${tone}">${icon(ic, 'h-4 w-4')}</span><div class="flex-1 min-w-0">${esc(msg)}</div>${opts.action ? `<button type="button" class="font-bold text-brand-700 dark:text-brand-400 hover:underline shrink-0" data-act>${esc(opts.action.label)}</button>` : ''}<button type="button" class="btn-icon !h-6 !w-6 shrink-0" data-close aria-label="Dismiss">${icon('x', 'h-3.5 w-3.5')}</button>`;
+  $('#toasts').appendChild(el);
+  let gone = false;
+  const remove = () => { if (gone) return; gone = true; el.classList.add('toast-out'); setTimeout(() => el.remove(), 200); };
+  $('[data-close]', el).addEventListener('click', remove);
+  if (opts.action) $('[data-act]', el).addEventListener('click', () => { opts.action.fn(); remove(); });
+  setTimeout(remove, opts.duration || (opts.action ? 8000 : 3500));
+}
+
+/* =========================================================
+   12. EVENTS
+   ========================================================= */
+function bindEvents() {
+  $('#theme-btn').addEventListener('click', () => applyTheme(!document.documentElement.classList.contains('dark'), true));
+  $('#settings-btn').addEventListener('click', () => openSettings());
+  $('#export-btn').addEventListener('click', ev => { ev.stopPropagation(); const hidden = $('#export-menu').classList.toggle('hidden'); $('#export-btn').setAttribute('aria-expanded', String(!hidden)); });
+  $('#export-menu').addEventListener('click', ev => { const b = ev.target.closest('[data-export]'); if (!b) return; $('#export-menu').classList.add('hidden'); runExport(b.dataset.export); });
+  document.addEventListener('click', ev => { if (!ev.target.closest('#export-menu-wrap')) $('#export-menu').classList.add('hidden'); });
+  document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && $('#confirm-modal').classList.contains('hidden')) { $('#export-menu').classList.add('hidden'); if (!$('#settings-modal').classList.contains('hidden')) closeSettings(); } });
+
+  $('#onboard-team').addEventListener('click', () => { dismissOnboard(); openSettings('team'); });
+  $('#onboard-dismiss').addEventListener('click', dismissOnboard);
+
+  const form = $('#expense-form');
+  form.addEventListener('submit', onSubmit);
+  form.addEventListener('input', ev => {
+    if (ev.target.id === 'f-rate') updateRateHint();
+    if (ev.target.classList.contains('split-pct')) updateSplitSum();
+    renderPreview();
+  });
+  form.addEventListener('change', ev => {
+    const t = ev.target;
+    if (t.id === 'f-cur') syncRate(true);
+    if (t.classList.contains('split-on')) {
+      const pct = $('.split-pct', t.closest('[data-fid]')); pct.disabled = !t.checked; if (!t.checked) pct.value = '0';
+      equalize();
+    }
+    if (t.name === 'split' || t.id.endsWith('-on')) syncFormUI();
+    renderPreview();
+  });
+  $('#split-equalize').addEventListener('click', () => { equalize(); renderPreview(); });
+  $('#form-reset').addEventListener('click', () => { resetForm(false); toast('Form cleared.', 'info'); });
+  $('#form-cancel').addEventListener('click', () => { resetForm(false); });
+
+  $('#repay-form').addEventListener('submit', onRepaySubmit);
+  $('#repay-card').addEventListener('click', ev => {
+    const plan = ev.target.closest('[data-plan]');
+    if (plan) { const p = computeLedger().plan[+plan.dataset.plan]; if (p) { $('#r-from').value = p.from; $('#r-to').value = p.to; $('#r-amount').value = round2(p.amount); $('#r-amount').focus(); } return; }
+    const del = ev.target.closest('[data-del-repay]'); if (del) { deleteRepayment(del.dataset.delRepay); return; }
+    if (ev.target.closest('#rp-log-toggle')) { ui.showLog = !ui.showLog; renderRepayments(computeLedger()); }
+  });
+
+  $('#tx-search').addEventListener('input', ev => { ui.search = ev.target.value; ui.selected.clear(); renderFilters(); renderTable(); });
+  $('#tx-sort').addEventListener('change', ev => { ui.sort = ev.target.value; renderTable(); });
+  $('#tx-card').addEventListener('click', ev => {
+    const cat = ev.target.closest('[data-cat]'); if (cat) { toggleSet(ui.cats, cat.dataset.cat); ui.selected.clear(); renderFilters(); renderTable(); return; }
+    const payer = ev.target.closest('[data-payer]'); if (payer) { toggleSet(ui.payers, payer.dataset.payer); ui.selected.clear(); renderFilters(); renderTable(); return; }
+    if (ev.target.closest('#tx-clear')) { ui.cats.clear(); ui.payers.clear(); ui.search = ''; $('#tx-search').value = ''; ui.selected.clear(); renderFilters(); renderTable(); return; }
+    const edit = ev.target.closest('[data-edit]'); if (edit) { startEdit(edit.dataset.edit); return; }
+    const del = ev.target.closest('[data-del]'); if (del) { deleteExpenses([del.dataset.del]); return; }
+    const bulk = ev.target.closest('[data-bulk]'); if (bulk) onBulk(bulk.dataset.bulk);
+  });
+  $('#tx-card').addEventListener('change', ev => {
+    const t = ev.target;
+    if (t.id === 'tx-sel-all') { filteredExpenses().forEach(e => t.checked ? ui.selected.add(e.id) : ui.selected.delete(e.id)); renderTable(); }
+    else if (t.classList.contains('row-sel')) { t.checked ? ui.selected.add(t.dataset.sel) : ui.selected.delete(t.dataset.sel); renderTable(); }
+  });
+
+  $('#settings-modal').addEventListener('click', ev => {
+    if (ev.target.closest('[data-close-modal]')) { closeSettings(); return; }
+    const tab = ev.target.closest('[data-tab]'); if (tab) showTab(tab.dataset.tab);
+    const rm = ev.target.closest('.s-remove'); if (rm && !caps.readOnly) { removeFounder(rm.closest('[data-fid]').dataset.fid); }
+  });
+  $('#s-company').addEventListener('input', ev => { state.company = ev.target.value.trim() || 'My Startup'; scheduleSettingsWrite(); renderCompany(); });
+  $('#s-add-founder').addEventListener('click', addFounder);
+  $('#s-founders').addEventListener('input', ev => {
+    const row = ev.target.closest('[data-fid]'); if (!row) return;
+    const f = founderById(row.dataset.fid); if (!f) return;
+    if (ev.target.classList.contains('s-name')) f.name = ev.target.value.trim() || 'Unnamed';
+    else if (ev.target.classList.contains('s-color')) f.color = ev.target.value;
+    else return;
+    scheduleSettingsWrite(); renderAll();
+  });
+  $('#s-founders').addEventListener('change', ev => {
+    const row = ev.target.closest('[data-fid]'); if (!row || !ev.target.classList.contains('s-primary')) return;
+    state.primaryId = row.dataset.fid; scheduleSettingsWrite(0); renderAll();
+  });
+  $('#s-rates').addEventListener('input', ev => {
+    const inp = ev.target.closest('[data-rate]'); if (!inp) return;
+    const v = num(inp.value); if (!(v > 0)) return;
+    state.rates[inp.dataset.rate] = v; state.ratesSource = 'Manually set'; state.ratesUpdatedAt = new Date().toISOString();
+    scheduleSettingsWrite(); $('#s-rates-meta').textContent = ratesMeta(); renderFooter();
+    if (!ui.editingId && $('#f-cur').value === inp.dataset.rate) { syncRate(true); renderPreview(); }
+  });
+  $('#s-rates-reset').addEventListener('click', () => {
+    state.rates = Object.assign({}, DEFAULT_RATES); state.ratesSource = 'Estimated defaults'; state.ratesUpdatedAt = null;
+    scheduleSettingsWrite(0); renderSettings(); renderFooter(); if (!ui.editingId) { syncRate(true); renderPreview(); }
+    toast('Rates reset to the built-in estimates.', 'info');
+  });
+  $('#s-tax-default').addEventListener('input', ev => { state.defaults.taxPct = num(ev.target.value); scheduleSettingsWrite(); });
+  $('#s-duty-default').addEventListener('input', ev => { state.defaults.dutyPct = num(ev.target.value); scheduleSettingsWrite(); });
+  $('#s-export-json').addEventListener('click', () => runExport('json'));
+  $('#s-import-file').addEventListener('change', ev => { const f = ev.target.files && ev.target.files[0]; if (f && !caps.readOnly) importJSON(f); ev.target.value = ''; });
+  $('#s-clear').addEventListener('click', async () => {
+    if (caps.readOnly) return;
+    if (!(await ask(`Delete every expense, repayment and setting in this ledger${caps.mode === 'cloud' ? ', for everyone' : ''}? Download a backup first if you might need it.`, { ok: 'Delete everything', danger: true }))) return;
+    closeSettings(); toast('Clearing the ledger', 'info');
+    await store.clearAll(); lsSet(ONBOARD_KEY, '1'); resetForm(true); toast('Ledger cleared.', 'info');
+  });
+  window.addEventListener('beforeunload', () => { if (settingsSync.timer) { clearTimeout(settingsSync.timer); flushSettings(); } });
+}
+
+/* =========================================================
+   13. INIT
+   ========================================================= */
+async function init() {
+  hydrateIcons();
+  const printCss = document.createElement('style');
+  printCss.textContent = `@media print{@page{margin:12mm}html,body{background:#fff!important;color:#111!important}#app,#toasts,#settings-modal{display:none!important}#statement{display:block!important}${STATEMENT_CSS}}`;
+  document.head.appendChild(printCss);
+
+  applySettings(null);
+  populateStaticSelects(); renderFounderInputs(); bindEvents(); resetForm(true); $('#r-date').value = nowLocal();
+  setupTheme(); setStatus('connecting'); renderAll();
+
+  if (!hasClaude) { startLocal(); return; }
+  try { await bootCapabilities(); } catch (e) { console.warn('Capabilities unavailable', e); }
+  if (caps.db) { setReadOnly(caps.readOnly); startCloud(); }
+  else { startLocal(); toast('The shared ledger is not available in this view, so this copy is saved on this device only.', 'warn', { duration: 8000 }); }
+}
+function startLocal() {
+  caps.mode = 'local'; probeStorage(); loadLocal();
+  markReady(runtime.storageOk ? 'local' : 'nostorage');
+  if (!runtime.storageOk) toast('Storage is blocked here, so entries will not survive a reload. Use Export for a backup.', 'warn', { duration: 8000 });
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+</script>
+</body>
+</html>
